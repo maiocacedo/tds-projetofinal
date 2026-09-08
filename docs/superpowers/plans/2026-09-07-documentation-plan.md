@@ -2,6 +2,10 @@
 
 Antes de escrevermos qualquer linha de código ou o plano de implementação técnico, executaremos as tarefas de documentação abaixo. Cada etapa deve ser validada pelo usuário.
 
+- [ ] **Fase 0: Levantamento de Requisitos**
+  - Documento alvo: `docs/requirements.md`
+  - Conteúdo: Entrevista com o usuário para definição de Requisitos Funcionais (RF), Requisitos Não Funcionais (RNF) e Casos de Uso (UC).
+
 - [ ] **Fase 1: Mapeamento da API REST**
   - Documento alvo: `docs/api-routes.md`
   - Conteúdo: Rotas completas para Autenticação, Usuários, Casas, Matches, Despesas, Tarefas e Mercado. Verbos HTTP, payloads e respostas esperadas.
