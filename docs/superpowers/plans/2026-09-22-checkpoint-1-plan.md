@@ -63,7 +63,7 @@ git commit -m "chore: scaffold initial spring boot project configuration"
 - Create: `src/main/java/com/nossoteto/repository/UserRepository.java`
 - Create: `src/test/java/com/nossoteto/repository/UserRepositoryTest.java`
 
-- [ ] **Step 1: Criar Migration V1**
+- [x] **Step 1: Criar Migration V1**
 
 ```sql
 CREATE TABLE houses (
@@ -86,20 +86,20 @@ CREATE TABLE users (
 );
 ```
 
-- [ ] **Step 2: Criar Teste de Repositório (UserRepositoryTest.java)**
+- [x] **Step 2: Criar Teste de Repositório (UserRepositoryTest.java)**
 
 *(Escrever um `@DataJpaTest` básico para verificar se a injeção do repositório funciona e salva um User).*
 
-- [ ] **Step 3: Criar a Entidade User e Interface UserRepository**
+- [x] **Step 3: Criar a Entidade User e Interface UserRepository**
 
 ```java
 // Entidade JPA mapeando a tabela users. Campos: id (UUID), email, passwordHash.
 ```
 
-- [ ] **Step 4: Executar testes para confirmar mapeamento**
+- [x] **Step 4: Executar testes para confirmar mapeamento**
 Executar comando Maven para testes e confirmar aprovação.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/
