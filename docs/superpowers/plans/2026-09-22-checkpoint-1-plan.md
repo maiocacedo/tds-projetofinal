@@ -113,13 +113,13 @@ git commit -m "feat: setup flyway V1 and user jpa repository"
 - Create: `src/main/java/com/nossoteto/security/JwtTokenProvider.java`
 - Create: `src/main/java/com/nossoteto/security/JwtAuthenticationFilter.java`
 
-- [ ] **Step 1: Implementar o Provider e o Filter de JWT**
+- [x] **Step 1: Implementar o Provider e o Filter de JWT**
 *(Adicionar lógicas de geração de token e filtro HTTP para validar `Authorization: Bearer`).*
 
-- [ ] **Step 2: Configurar o SecurityConfig**
+- [x] **Step 2: Configurar o SecurityConfig**
 *(Bloquear todas as requisições exceto `/api/auth/**`, desativar CSRF e SessionCreationPolicy).*
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/
