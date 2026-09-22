@@ -18,7 +18,7 @@ Antes de escrevermos qualquer linha de código ou o plano de implementação té
   - Documento alvo: `docs/ui-screens.md`
   - Conteúdo: Estrutura de navegação do React, páginas necessárias, componentes reutilizáveis principais e fluxos de estado.
 
-- [ ] **Fase 4: Estratégia de Segurança, CI e E2E**
+- [x] **Fase 4: Estratégia de Segurança, CI e E2E**
   - Documento alvo: `docs/security-ci-strategy.md`
   - Conteúdo: Detalhamento de como o JWT será validado, proteção de endpoints, configuração do pipeline de CI e ferramentas de E2E (ex: Cypress ou Playwright).
 
