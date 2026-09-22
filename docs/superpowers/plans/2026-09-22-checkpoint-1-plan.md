@@ -133,13 +133,13 @@ git commit -m "feat: setup spring security and jwt configuration"
 - Create: `src/main/java/com/nossoteto/service/AuthService.java`
 - Create: `src/main/java/com/nossoteto/dto/LoginRequest.java`
 
-- [ ] **Step 1: Escrever Teste Unitário para AuthService e AuthController**
+- [x] **Step 1: Escrever Teste Unitário para AuthService e AuthController**
 
-- [ ] **Step 2: Implementar AuthService (Registro e Login com BCrypt)**
+- [x] **Step 2: Implementar AuthService (Registro e Login com BCrypt)**
 
-- [ ] **Step 3: Implementar AuthController (`/api/auth/register` e `/api/auth/login`)**
+- [x] **Step 3: Implementar AuthController (`/api/auth/register` e `/api/auth/login`)**
 
-- [ ] **Step 4: Testar e Commit**
+- [x] **Step 4: Testar e Commit**
 
 ```bash
 git commit -m "feat: implement auth login and registration endpoints"
