@@ -6,11 +6,11 @@ Antes de escrevermos qualquer linha de código ou o plano de implementação té
   - Documento alvo: `docs/requirements.md`
   - Conteúdo: Entrevista com o usuário para definição de Requisitos Funcionais (RF), Requisitos Não Funcionais (RNF) e Casos de Uso (UC).
 
-- [ ] **Fase 1: Mapeamento da API REST**
+- [x] **Fase 1: Mapeamento da API REST**
   - Documento alvo: `docs/api-routes.md`
   - Conteúdo: Rotas completas para Autenticação, Usuários, Casas, Matches, Despesas, Tarefas e Mercado. Verbos HTTP, payloads e respostas esperadas.
 
-- [ ] **Fase 2: Modelagem de Banco de Dados**
+- [x] **Fase 2: Modelagem de Banco de Dados**
   - Documento alvo: `docs/database-schema.md`
   - Conteúdo: Diagrama Entidade-Relacionamento (conceitual/texto), tipagem de colunas, chaves primárias, estrangeiras e constraints.
 
