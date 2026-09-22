@@ -17,11 +17,11 @@
 - Create: `src/main/java/com/nossoteto/NossoTetoApplication.java`
 - Create: `src/main/resources/application.properties`
 
-- [ ] **Step 1: Criar o arquivo `pom.xml` base**
+- [x] **Step 1: Criar o arquivo `pom.xml` base**
 
 Adicionar as dependências principais: `spring-boot-starter-web`, `spring-boot-starter-data-jpa`, `spring-boot-starter-security`, `spring-boot-starter-test`, `mysql-connector-j`, `flyway-core`, e `flyway-mysql`.
 
-- [ ] **Step 2: Criar a classe principal da aplicação**
+- [x] **Step 2: Criar a classe principal da aplicação**
 
 ```java
 package com.nossoteto;
@@ -37,7 +37,7 @@ public class NossoTetoApplication {
 }
 ```
 
-- [ ] **Step 3: Configurar o `application.properties`**
+- [x] **Step 3: Configurar o `application.properties`**
 
 ```properties
 spring.application.name=nosso-teto-api
@@ -48,7 +48,7 @@ spring.jpa.hibernate.ddl-auto=validate
 spring.flyway.enabled=true
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add pom.xml src/
