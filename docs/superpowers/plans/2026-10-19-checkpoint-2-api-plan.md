@@ -86,15 +86,15 @@ Commit: `feat: add V2 flyway migration, domain enums, voting evaluator and house
 - Test: `src/test/java/com/nossoteto/service/UserServiceTest.java`
 - Test: `src/test/java/com/nossoteto/controller/UserControllerTest.java`
 
-- [ ] **Step 1: Escrever os testes `UserServiceTest` e `UserControllerTest` (TDD)**
+- [x] **Step 1: Escrever os testes `UserServiceTest` e `UserControllerTest` (TDD)**
 
 Testar `GET /api/users/me` (retornando dados do usuário logado, casa e perfil) e `PUT /api/users/me/profile` (criando/atualizando `UserProfile` tanto com campos em português do `api-routes.md` quanto em inglês).
 
-- [ ] **Step 2: Implementar `UserProfile`, `UserProfileRepository`, DTOs, `UserService` e `UserController`**
+- [x] **Step 2: Implementar `UserProfile`, `UserProfileRepository`, DTOs, `UserService` e `UserController`**
 
 Mapear `user_profiles` (`userId` como PK) e suportar `@JsonAlias` para `orcamentoMensal`/`budget`, `possuiPets`/`hasPets`, `fumante`/`isSmoker`, `profissao`/`profession`, `biografia`/`bio`, `alergias`/`allergies`, `nivelOrganizacao`/`organizationLevel`, `toleranciaVisitas`/`visitorTolerance`, `mobiliaPropria`/`hasFurniture`.
 
-- [ ] **Step 3: Rodar `mvn test` e fazer commit**
+- [x] **Step 3: Rodar `mvn test` e fazer commit**
 
 Run: `mvn test`  
 Commit: `feat: implement user profile management and /api/users/me endpoints`
