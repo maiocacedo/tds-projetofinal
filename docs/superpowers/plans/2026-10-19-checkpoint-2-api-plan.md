@@ -114,7 +114,7 @@ Commit: `feat: implement user profile management and /api/users/me endpoints`
 - Test: `src/test/java/com/nossoteto/service/HouseServiceTest.java`
 - Test: `src/test/java/com/nossoteto/controller/HouseControllerTest.java`
 
-- [ ] **Step 1: Escrever testes `CompatibilityCalculatorTest`, `HouseServiceTest` e `HouseControllerTest` (TDD)**
+- [x] **Step 1: Escrever testes `CompatibilityCalculatorTest`, `HouseServiceTest` e `HouseControllerTest` (TDD)**
 
 Testar:
 - Cálculo de score de compatibilidade (`0` a `100`) cobrindo os 5 critérios (orçamento, pets, fumante, organização, visitas).
@@ -122,9 +122,9 @@ Testar:
 - `GET /api/houses` listando casas com vagas abertas, aplicando filtros (`maxRent`/`orcamentoMaximo`, `allowsPets`/`aceitaPets`, `allowsSmokers`/`aceitaFumantes`) e calculando `compatibilityScore`.
 - `GET /api/houses/{id}` retornando detalhes da casa, moradores e `compatibilityScore`.
 
-- [ ] **Step 2: Implementar `CompatibilityCalculator`, DTOs, `HouseService` e `HouseController`**
+- [x] **Step 2: Implementar `CompatibilityCalculator`, DTOs, `HouseService` e `HouseController`**
 
-- [ ] **Step 3: Rodar `mvn test` e fazer commit**
+- [x] **Step 3: Rodar `mvn test` e fazer commit**
 
 Run: `mvn test`  
 Commit: `feat: implement houses endpoints, filters and compatibility calculator`
