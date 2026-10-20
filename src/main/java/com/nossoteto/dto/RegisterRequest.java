@@ -1,7 +1,14 @@
 package com.nossoteto.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 public class RegisterRequest {
+    @JsonAlias("nome")
+    private String name;
+
     private String email;
+
+    @JsonAlias("senha")
     private String password;
 
     public RegisterRequest() {}
@@ -9,6 +16,20 @@ public class RegisterRequest {
     public RegisterRequest(String email, String password) {
         this.email = email;
         this.password = password;
+    }
+
+    public RegisterRequest(String name, String email, String password) {
+        this.name = name;
+        this.email = email;
+        this.password = password;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getEmail() {

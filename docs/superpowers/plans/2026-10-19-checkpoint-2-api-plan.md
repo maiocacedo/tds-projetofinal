@@ -39,7 +39,7 @@
 - Test: `src/test/java/com/nossoteto/service/VotingEvaluatorTest.java`
 - Test: `src/test/java/com/nossoteto/service/HouseAccessValidatorTest.java`
 
-- [ ] **Step 1: Adicionar H2 no `pom.xml` e configurar `src/test/resources/application.properties`**
+- [x] **Step 1: Adicionar H2 no `pom.xml` e configurar `src/test/resources/application.properties`**
 
 Adicionar dependência H2 com `<scope>test</scope>` em `pom.xml` e criar `src/test/resources/application.properties`:
 ```properties
@@ -52,22 +52,22 @@ spring.flyway.enabled=true
 app.upload.dir=target/test-uploads
 ```
 
-- [ ] **Step 2: Criar Migration `src/main/resources/db/migration/V2__Checkpoint2_full_schema.sql`**
+- [x] **Step 2: Criar Migration `src/main/resources/db/migration/V2__Checkpoint2_full_schema.sql`**
 
 Criar todas as alterações em `users` e `houses` e as novas tabelas (`user_profiles`, `match_requests`, `match_votes`, `expenses`, `expense_splits`, `expense_split_votes`, `chores`, `groceries`) conforme especificado na seção 2 da Spec.
 
-- [ ] **Step 3: Escrever os testes unitários `VotingEvaluatorTest` e `HouseAccessValidatorTest` (TDD)**
+- [x] **Step 3: Escrever os testes unitários `VotingEvaluatorTest` e `HouseAccessValidatorTest` (TDD)**
 
 Testar:
 - `VotingRule.UNANIMITY`: aprovação com 100% dos votos, rejeição imediata com 1 voto contrário, pendente enquanto faltam votos.
 - `VotingRule.MAJORITY`: aprovação com `> 50%` (ex: 2 de 3, 3 de 4), rejeição quando votos contrários atingem `(total + 1) / 2` (ex: 2 de 3, 2 de 4), pendente nos demais casos.
 - `HouseAccessValidator`: sucesso quando `user.houseId == houseId`, `ForbiddenOperationException` quando pertence a outra casa ou não tem casa, e validação de `requireHouseAdmin`.
 
-- [ ] **Step 4: Implementar Enums, Exceções, `GlobalExceptionHandler`, `VotingEvaluator`, `HouseAccessValidator` e atualizar `User`, `House`, `RegisterRequest`, `LoginRequest`, `AuthService`**
+- [x] **Step 4: Implementar Enums, Exceções, `GlobalExceptionHandler`, `VotingEvaluator`, `HouseAccessValidator` e atualizar `User`, `House`, `RegisterRequest`, `LoginRequest`, `AuthService`**
 
 Suportar `@JsonAlias("nome")` em `RegisterRequest.name` e `@JsonAlias("senha")` em `RegisterRequest.password` / `LoginRequest.password`.
 
-- [ ] **Step 5: Rodar `mvn test` e fazer commit**
+- [x] **Step 5: Rodar `mvn test` e fazer commit**
 
 Run: `mvn test`  
 Commit: `feat: add V2 flyway migration, domain enums, voting evaluator and house access validator`

@@ -1,8 +1,9 @@
 package com.nossoteto.service;
 
+import com.nossoteto.dto.AuthResponse;
 import com.nossoteto.dto.LoginRequest;
 import com.nossoteto.dto.RegisterRequest;
-import com.nossoteto.dto.AuthResponse;
+import com.nossoteto.exception.BusinessRuleException;
 import com.nossoteto.model.User;
 import com.nossoteto.repository.UserRepository;
 import com.nossoteto.security.JwtTokenProvider;
@@ -26,33 +27,37 @@ public class AuthService {
         this.jwtTokenProvider = jwtTokenProvider;
     }
 
-    public User registerUser(RegisterRequest request) throws Exception {
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new Exception("Email already exists");
+    public User registerUser(RegisterRequest request) {
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new BusinessRuleException("Email is required");
         }
-        
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new BusinessRuleException("Email already exists");
+        }
+
         User user = new User();
         user.setId(UUID.randomUUID().toString());
+        user.setName(request.getName());
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
-        
+
         return userRepository.save(user);
     }
 
-    public AuthResponse loginUser(LoginRequest request) throws Exception {
+    public AuthResponse loginUser(LoginRequest request) {
         Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
         if (userOptional.isEmpty()) {
-            throw new Exception("Invalid credentials");
+            throw new BusinessRuleException("Invalid credentials");
         }
-        
+
         User user = userOptional.get();
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new Exception("Invalid credentials");
+            throw new BusinessRuleException("Invalid credentials");
         }
-        
+
         String token = jwtTokenProvider.generateToken(user.getId());
-        return new AuthResponse(token, user.getId());
+        return new AuthResponse(token, user.getId(), 3600);
     }
 }

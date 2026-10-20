@@ -1,7 +1,11 @@
 package com.nossoteto.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 public class LoginRequest {
     private String email;
+
+    @JsonAlias("senha")
     private String password;
 
     public LoginRequest() {}
