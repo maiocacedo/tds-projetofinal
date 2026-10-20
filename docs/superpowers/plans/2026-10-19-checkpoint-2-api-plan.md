@@ -184,7 +184,7 @@ Commit: `feat: implement match requests and configurable house voting`
 - Test: `src/test/java/com/nossoteto/service/ExpenseServiceTest.java`
 - Test: `src/test/java/com/nossoteto/controller/ExpenseControllerTest.java`
 
-- [ ] **Step 1: Escrever testes `ExpenseServiceTest` e `ExpenseControllerTest` (TDD)**
+- [x] **Step 1: Escrever testes `ExpenseServiceTest` e `ExpenseControllerTest` (TDD)**
 
 Testar:
 - `POST /api/houses/{houseId}/expenses`: divisão igualitária automática entre todos os moradores da casa (com ajuste de centavos) e salvamento de `anexoBase64` em disco.
@@ -192,9 +192,9 @@ Testar:
 - `POST /api/houses/{houseId}/expenses/{expenseId}/propose-split` (por valor ou porcentagem) e `POST .../vote-split` aplicando a nova divisão após aprovação conforme `votingRule` da casa.
 - `PUT /api/houses/{houseId}/expenses/{expenseId}/pay` marcando a parcela individual do morador logado como paga.
 
-- [ ] **Step 2: Implementar entidades, repositórios, DTOs, `ExpenseService` e `ExpenseController`**
+- [x] **Step 2: Implementar entidades, repositórios, DTOs, `ExpenseService` e `ExpenseController`**
 
-- [ ] **Step 3: Rodar `mvn test` e fazer commit**
+- [x] **Step 3: Rodar `mvn test` e fazer commit**
 
 Run: `mvn test`  
 Commit: `feat: implement shared expenses, custom split voting and secure attachments`
