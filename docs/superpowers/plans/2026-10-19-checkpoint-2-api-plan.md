@@ -147,7 +147,7 @@ Commit: `feat: implement houses endpoints, filters and compatibility calculator`
 - Test: `src/test/java/com/nossoteto/service/MatchServiceTest.java`
 - Test: `src/test/java/com/nossoteto/controller/MatchControllerTest.java`
 
-- [ ] **Step 1: Escrever testes `MatchServiceTest` e `MatchControllerTest` (TDD)**
+- [x] **Step 1: Escrever testes `MatchServiceTest` e `MatchControllerTest` (TDD)**
 
 Testar:
 - `POST /api/matches/requests`: criação de solicitação `PENDING` e bloqueio de duplicidade.
@@ -155,11 +155,11 @@ Testar:
 - `POST /api/matches/requests/{requestId}/vote`: votação com `UNANIMITY` e `MAJORITY`, entrada automática do candidato na casa quando aprovado, retorno de `hasOtherPendingRequests` (RF06), e rejeição.
 - `POST /api/matches/requests/cancel-others`: cancelamento das demais solicitações `PENDING` do usuário (RF06).
 
-- [ ] **Step 2: Implementar entidades, repositórios, DTOs, `MatchService` e `MatchController`**
+- [x] **Step 2: Implementar entidades, repositórios, DTOs, `MatchService` e `MatchController`**
 
 Suportar votos `"APROVAR"`/`"APPROVE"` e `"REJEITAR"`/`"REJECT"`.
 
-- [ ] **Step 3: Rodar `mvn test` e fazer commit**
+- [x] **Step 3: Rodar `mvn test` e fazer commit**
 
 Run: `mvn test`  
 Commit: `feat: implement match requests and configurable house voting`
