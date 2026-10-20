@@ -226,7 +226,7 @@ Commit: `feat: implement shared expenses, custom split voting and secure attachm
 - Test: `src/test/java/com/nossoteto/service/GroceryServiceTest.java`
 - Test: `src/test/java/com/nossoteto/integration/NossoTetoIntegrationTest.java`
 
-- [ ] **Step 1: Escrever testes `ChoreServiceTest`, `GroceryServiceTest` e `NossoTetoIntegrationTest` (TDD)**
+- [x] **Step 1: Escrever testes `ChoreServiceTest`, `GroceryServiceTest` e `NossoTetoIntegrationTest` (TDD)**
 
 Testar:
 - Criação e conclusão de tarefas (`ROTATIONAL` e `FIXED`), e ciclo semanal (`processWeeklyCycle`) marcando pendentes como `DELAYED` e rotacionando o responsável das tarefas `ROTATIONAL`.
@@ -234,9 +234,9 @@ Testar:
 - `GET /api/houses/{houseId}/dashboard` retornando resumo consolidado da casa.
 - Teste de integração completo (`@SpringBootTest` + `@AutoConfigureMockMvc`) executando os Golden Paths ponta a ponta (Cadastro -> Perfil -> Criação de Casa -> Solicitação e Votação de Match -> Despesa + Split + Pagamento + Anexo `403` para intruso -> Tarefas + Rotação -> Mercado -> Dashboard).
 
-- [ ] **Step 2: Implementar módulos de Tarefas, Mercado e Dashboard, e atualizar `docs/api-routes.md` e `docs/database-schema.md`**
+- [x] **Step 2: Implementar módulos de Tarefas, Mercado e Dashboard, e atualizar `docs/api-routes.md` e `docs/database-schema.md`**
 
-- [ ] **Step 3: Rodar `mvn test` completo e fazer commit**
+- [x] **Step 3: Rodar `mvn test` completo e fazer commit**
 
 Run: `mvn test`  
 Commit: `feat: implement chores, groceries, house dashboard and full integration tests`
