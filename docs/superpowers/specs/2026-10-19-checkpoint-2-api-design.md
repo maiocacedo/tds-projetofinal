@@ -203,9 +203,10 @@ A migration `V2` expande o schema criado na `V1` com as seguintes alterações e
   - Restrito a moradores da casa. Marca a tarefa como `COMPLETED`.
 - **Ciclo Semanal e Rotação (`processWeeklyCycle` + `@Scheduled(cron = "0 0 0 * * SUN")` + `POST /api/houses/{houseId}/chores/rotate`):**
   - Para cada tarefa da casa:
-    - Se o status atual for `PENDING` (não concluída no ciclo que se encerra), seu status é marcado como `DELAYED` (**RF14**); se já estava `COMPLETED`, inicia o novo ciclo como `PENDING`.
-    - Se `choreType == ROTATIONAL`, avança `currentAssigneeId` para o próximo morador da casa (ordenados de forma determinística por `id`).
+    - Se não foi concluída no ciclo que se encerra (`PENDING` ou já `DELAYED`), é marcada como `DELAYED` (**RF14**) e **permanece com o mesmo responsável** até ser concluída.
+    - Se já estava `COMPLETED`, inicia o novo ciclo como `PENDING` e, se `choreType == ROTATIONAL`, avança `currentAssigneeId` para o próximo morador da casa (ordenados de forma determinística por `id`).
     - Atualiza `lastResetDate = LocalDate.now()`.
+  - *Revisão 2026-10-25:* a versão original rotacionava também as tarefas atrasadas, o que transferia o atraso para o próximo morador e o apagava no ciclo seguinte. O `POST .../chores/rotate` passou a ser restrito ao administrador da casa.
 
 ### 3.7. Lista de Mercado (`GroceryController`, `GroceryService`)
 - **`POST /api/houses/{houseId}/groceries`:**

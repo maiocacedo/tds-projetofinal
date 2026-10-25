@@ -96,9 +96,10 @@ public class ChoreService {
         return ChoreResponse.fromEntity(saved);
     }
 
+    // Closing a cycle marks everyone's unfinished chores as DELAYED, so only the admin may force it.
     @Transactional
     public List<ChoreResponse> rotateHouseChores(String userId, String houseId) {
-        houseAccessValidator.requireHouseMember(userId, houseId);
+        houseAccessValidator.requireHouseAdmin(userId, houseId);
         return processHouseWeeklyCycle(houseId);
     }
 
@@ -117,12 +118,15 @@ public class ChoreService {
         List<Chore> chores = choreRepository.findByHouseId(houseId);
 
         for (Chore chore : chores) {
-            if (chore.getStatus() == ChoreStatus.PENDING) {
+            // An unfinished chore (PENDING or already DELAYED) stays DELAYED with the same resident until
+            // they complete it, so the delay is not handed over to the next person in the rotation (RF14).
+            if (chore.getStatus() != ChoreStatus.COMPLETED) {
                 chore.setStatus(ChoreStatus.DELAYED);
-            } else {
-                chore.setStatus(ChoreStatus.PENDING);
+                chore.setLastResetDate(LocalDate.now());
+                continue;
             }
 
+            chore.setStatus(ChoreStatus.PENDING);
             if (chore.getChoreType() == ChoreType.ROTATIONAL && !members.isEmpty()) {
                 int currentIdx = -1;
                 for (int i = 0; i < members.size(); i++) {

@@ -34,8 +34,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -166,12 +168,17 @@ public class ExpenseService {
         }
 
         BigDecimal sumInput = BigDecimal.ZERO;
+        Set<String> seenUserIds = new HashSet<>();
         for (ProposeSplitRequest.SplitItem item : request.getSplits()) {
             if (item.getUserId() == null || item.getUserId().isBlank() || item.getAmountOrPercentage() == null) {
                 throw new BusinessRuleException("Each split item must have userId and amountOrPercentage");
             }
             if (item.getAmountOrPercentage().compareTo(BigDecimal.ZERO) < 0) {
                 throw new BusinessRuleException("Split values cannot be negative");
+            }
+            // A repeated user would pass the sum check but only one of its values would be stored.
+            if (!seenUserIds.add(item.getUserId())) {
+                throw new BusinessRuleException("Duplicate userId in split proposal: " + item.getUserId());
             }
             sumInput = sumInput.add(item.getAmountOrPercentage());
         }
@@ -263,11 +270,17 @@ public class ExpenseService {
 
         House house = houseRepository.findById(houseId)
                 .orElseThrow(() -> new ResourceNotFoundException("House not found: " + houseId));
-        int totalMembers = (int) userRepository.countByHouseId(houseId);
+        Set<String> memberIds = userRepository.findByHouseIdOrderByIdAsc(houseId).stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+        int totalMembers = memberIds.size();
 
-        List<ExpenseSplitVote> allVotes = expenseSplitVoteRepository.findByExpenseId(expenseId);
-        int approveCount = (int) allVotes.stream().filter(v -> v.getVote() == VoteType.APPROVE).count();
-        int rejectCount = (int) allVotes.stream().filter(v -> v.getVote() == VoteType.REJECT).count();
+        // Votes from people who have since left the house no longer count.
+        List<ExpenseSplitVote> currentVotes = expenseSplitVoteRepository.findByExpenseId(expenseId).stream()
+                .filter(v -> memberIds.contains(v.getVoterId()))
+                .toList();
+        int approveCount = (int) currentVotes.stream().filter(v -> v.getVote() == VoteType.APPROVE).count();
+        int rejectCount = (int) currentVotes.stream().filter(v -> v.getVote() == VoteType.REJECT).count();
 
         VotingOutcome outcome = votingEvaluator.evaluate(house.getVotingRule(), totalMembers, approveCount, rejectCount);
         List<ExpenseSplit> splits = expenseSplitRepository.findByExpenseId(expenseId);

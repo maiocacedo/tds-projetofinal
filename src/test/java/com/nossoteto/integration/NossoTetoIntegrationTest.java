@@ -134,6 +134,13 @@ class NossoTetoIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("PENDING"));
 
+        // User C already lives in House C, so they cannot ask to join House A without leaving first
+        mockMvc.perform(post("/api/matches/requests")
+                        .header("Authorization", "Bearer " + tokenC)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"houseId\": \"" + houseAId + "\"}"))
+                .andExpect(status().isBadRequest());
+
         // 5. User A votes APROVAR -> User B is accepted into House A (hasOtherPendingRequests == true), and User B cancels others
         mockMvc.perform(post("/api/matches/requests/" + matchRequestAId + "/vote")
                         .header("Authorization", "Bearer " + tokenA)
@@ -219,7 +226,8 @@ class NossoTetoIntegrationTest {
                         .header("Authorization", "Bearer " + tokenB))
                 .andExpect(status().isOk());
 
-        // 9. User A creates a ROTATIONAL chore, triggers weekly rotation -> status becomes DELAYED and assignee rotates from User A to User B
+        // 9. User A creates a ROTATIONAL chore. Only the admin (User A) may close the weekly cycle:
+        //    the unfinished chore becomes DELAYED and stays with User A; once completed, the next cycle hands it to User B
         String createChoreBody = """
                 {
                   "descricao": "Limpar Cozinha",
@@ -228,18 +236,35 @@ class NossoTetoIntegrationTest {
                 }
                 """.formatted(userAId);
 
-        mockMvc.perform(post("/api/houses/" + houseAId + "/chores")
+        MvcResult choreResult = mockMvc.perform(post("/api/houses/" + houseAId + "/chores")
                         .header("Authorization", "Bearer " + tokenA)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createChoreBody))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.currentAssigneeId").value(userAId));
+                .andExpect(jsonPath("$.currentAssigneeId").value(userAId))
+                .andReturn();
+        String choreId = objectMapper.readTree(choreResult.getResponse().getContentAsString()).get("id").asText();
+
+        mockMvc.perform(post("/api/houses/" + houseAId + "/chores/rotate")
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/houses/" + houseAId + "/chores/rotate")
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value("DELAYED"))
+                .andExpect(jsonPath("$[0].currentAssigneeId").value(userAId));
+
+        mockMvc.perform(put("/api/houses/" + houseAId + "/chores/" + choreId + "/complete")
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"));
+
+        mockMvc.perform(post("/api/houses/" + houseAId + "/chores/rotate")
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].status").value("PENDING"))
                 .andExpect(jsonPath("$[0].currentAssigneeId").value(userBId));
 
         // 10. User B adds a grocery item, assigns it, and User A checks GET /api/houses/{houseId}/dashboard
@@ -268,6 +293,25 @@ class NossoTetoIntegrationTest {
                 .andExpect(jsonPath("$.houseChores.length()").value(1))
                 .andExpect(jsonPath("$.pendingGroceries.length()").value(1))
                 .andExpect(jsonPath("$.pendingMatchRequestsCount").value(0));
+
+        // 11. User B leaves House A: B's chore and grocery assignment are handed back, and B loses access to the house
+        mockMvc.perform(post("/api/houses/" + houseAId + "/leave")
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/houses/" + houseAId + "/chores")
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].currentAssigneeId").value(userAId));
+
+        mockMvc.perform(get("/api/houses/" + houseAId + "/groceries")
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].assigneeId").doesNotExist());
+
+        mockMvc.perform(get("/api/houses/" + houseAId + "/dashboard")
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isForbidden());
     }
 
     private String registerUser(String name, String email, String password) throws Exception {
@@ -283,6 +327,7 @@ class NossoTetoIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.passwordHash").doesNotExist())
                 .andReturn();
 
         return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asText();

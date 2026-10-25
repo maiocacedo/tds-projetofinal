@@ -26,7 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class MatchService {
@@ -76,6 +78,9 @@ public class MatchService {
         if (houseId.equals(user.getHouseId())) {
             throw new BusinessRuleException("User already belongs to this house");
         }
+        if (user.getHouseId() != null) {
+            throw new BusinessRuleException("User already belongs to a house; leave it before requesting another one");
+        }
 
         if (matchRequestRepository.existsByUserIdAndHouseIdAndStatus(userId, houseId, MatchStatus.PENDING)) {
             throw new BusinessRuleException("Match request already pending for this house");
@@ -124,7 +129,10 @@ public class MatchService {
         House house = houseRepository.findById(matchRequest.getHouseId())
                 .orElseThrow(() -> new ResourceNotFoundException("House not found: " + matchRequest.getHouseId()));
 
-        int totalMembers = (int) userRepository.countByHouseId(house.getId());
+        Set<String> memberIds = userRepository.findByHouseIdOrderByIdAsc(house.getId()).stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+        int totalMembers = memberIds.size();
 
         MatchVote matchVote = matchVoteRepository.findByRequestIdAndVoterId(requestId, voterId)
                 .orElseGet(() -> {
@@ -137,9 +145,12 @@ public class MatchService {
         matchVote.setVote(voteType);
         matchVoteRepository.save(matchVote);
 
-        List<MatchVote> allVotes = matchVoteRepository.findByRequestId(requestId);
-        int approveCount = (int) allVotes.stream().filter(v -> v.getVote() == VoteType.APPROVE).count();
-        int rejectCount = (int) allVotes.stream().filter(v -> v.getVote() == VoteType.REJECT).count();
+        // Votes from people who have since left the house no longer count.
+        List<MatchVote> currentVotes = matchVoteRepository.findByRequestId(requestId).stream()
+                .filter(v -> memberIds.contains(v.getVoterId()))
+                .toList();
+        int approveCount = (int) currentVotes.stream().filter(v -> v.getVote() == VoteType.APPROVE).count();
+        int rejectCount = (int) currentVotes.stream().filter(v -> v.getVote() == VoteType.REJECT).count();
 
         VotingOutcome outcome = votingEvaluator.evaluate(house.getVotingRule(), totalMembers, approveCount, rejectCount);
 
@@ -147,11 +158,21 @@ public class MatchService {
         List<String> otherPendingIds = List.of();
 
         if (outcome == VotingOutcome.APPROVED) {
+            User candidate = userRepository.findById(matchRequest.getUserId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Candidate not found: " + matchRequest.getUserId()));
+
+            if (candidate.getHouseId() != null) {
+                // The candidate kept this request open (RF06) but joined another house meanwhile:
+                // close the request instead of silently moving them out of their current house.
+                matchRequest.setStatus(MatchStatus.CANCELLED);
+                matchRequestRepository.save(matchRequest);
+                return buildVoteResponse(requestId, matchRequest.getStatus(), approveCount, rejectCount,
+                        totalMembers, false, List.of());
+            }
+
             matchRequest.setStatus(MatchStatus.ACCEPTED);
             matchRequestRepository.save(matchRequest);
 
-            User candidate = userRepository.findById(matchRequest.getUserId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Candidate not found: " + matchRequest.getUserId()));
             candidate.setHouseId(house.getId());
             candidate.setIsHouseAdmin(false);
             userRepository.save(candidate);
@@ -167,9 +188,16 @@ public class MatchService {
             matchRequestRepository.save(matchRequest);
         }
 
+        return buildVoteResponse(requestId, matchRequest.getStatus(), approveCount, rejectCount,
+                totalMembers, hasOtherPending, otherPendingIds);
+    }
+
+    private VoteMatchResponse buildVoteResponse(String requestId, MatchStatus status, int approveCount,
+                                                int rejectCount, int totalMembers, boolean hasOtherPending,
+                                                List<String> otherPendingIds) {
         VoteMatchResponse response = new VoteMatchResponse();
         response.setRequestId(requestId);
-        response.setStatus(matchRequest.getStatus());
+        response.setStatus(status);
         response.setApproveVotes(approveCount);
         response.setRejectVotes(rejectCount);
         response.setTotalHouseMembers(totalMembers);

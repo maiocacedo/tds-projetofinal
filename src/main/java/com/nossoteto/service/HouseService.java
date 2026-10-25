@@ -47,6 +47,10 @@ public class HouseService {
         if (request == null || request.getName() == null || request.getName().isBlank()) {
             throw new BusinessRuleException("House name is required");
         }
+        if (user.getHouseId() != null) {
+            throw new BusinessRuleException("User already belongs to a house; leave it before creating a new one");
+        }
+        validateHouseAttributes(request);
 
         House house = new House();
         house.setId(UUID.randomUUID().toString());
@@ -72,8 +76,44 @@ public class HouseService {
         user.setIsHouseAdmin(true);
         userRepository.save(user);
 
-        List<HouseMemberSummaryDto> members = loadMembers(savedHouse.getId());
+        List<HouseMemberSummaryDto> members = loadMembers(savedHouse.getId(), true);
         return HouseResponse.fromEntity(savedHouse, null, members);
+    }
+
+    /**
+     * Partial update restricted to the house admin: only the fields present in the request are changed.
+     */
+    @Transactional
+    public HouseResponse updateHouse(String userId, String houseId, CreateHouseRequest request) {
+        houseAccessValidator.requireHouseAdmin(userId, houseId);
+        if (request == null) {
+            throw new BusinessRuleException("Request body is required");
+        }
+        if (request.getName() != null && request.getName().isBlank()) {
+            throw new BusinessRuleException("House name cannot be blank");
+        }
+        validateHouseAttributes(request);
+
+        House house = houseRepository.findById(houseId)
+                .orElseThrow(() -> new ResourceNotFoundException("House not found: " + houseId));
+
+        if (request.getName() != null) house.setName(request.getName().trim());
+        if (request.getAddress() != null) house.setAddress(request.getAddress());
+        if (request.getDescription() != null) house.setDescription(request.getDescription());
+        if (request.getBasicRules() != null) house.setBasicRules(request.getBasicRules());
+        if (request.getRentAmount() != null) house.setRentAmount(request.getRentAmount());
+        if (request.getAllowsPets() != null) house.setAllowsPets(request.getAllowsPets());
+        if (request.getAllowsSmokers() != null) house.setAllowsSmokers(request.getAllowsSmokers());
+        if (request.getExpectedOrganizationLevel() != null) {
+            house.setExpectedOrganizationLevel(request.getExpectedOrganizationLevel());
+        }
+        if (request.getVisitorTolerance() != null) house.setVisitorTolerance(request.getVisitorTolerance());
+        if (request.getHasFurniture() != null) house.setHasFurniture(request.getHasFurniture());
+        if (request.getVotingRule() != null) house.setVotingRule(request.getVotingRule());
+        if (request.getIsAcceptingMatches() != null) house.setIsAcceptingMatches(request.getIsAcceptingMatches());
+
+        House saved = houseRepository.save(house);
+        return HouseResponse.fromEntity(saved, null, loadMembers(houseId, true));
     }
 
     public List<HouseResponse> listOpenHouses(String userId,
@@ -83,6 +123,7 @@ public class HouseService {
         UserProfile profile = (userId != null && !userId.isBlank())
                 ? userProfileRepository.findById(userId).orElse(null)
                 : null;
+        String viewerHouseId = findViewerHouseId(userId);
 
         return houseRepository.findByIsAcceptingMatchesTrue().stream()
                 .filter(house -> maxRent == null
@@ -94,7 +135,8 @@ public class HouseService {
                         || Objects.equals(house.getAllowsSmokers(), allowsSmokers))
                 .map(house -> {
                     Integer score = compatibilityCalculator.calculateScore(profile, house);
-                    List<HouseMemberSummaryDto> members = loadMembers(house.getId());
+                    List<HouseMemberSummaryDto> members =
+                            loadMembers(house.getId(), house.getId().equals(viewerHouseId));
                     return HouseResponse.fromEntity(house, score, members);
                 })
                 .toList();
@@ -109,13 +151,35 @@ public class HouseService {
                 : null;
 
         Integer score = compatibilityCalculator.calculateScore(profile, house);
-        List<HouseMemberSummaryDto> members = loadMembers(houseId);
+        List<HouseMemberSummaryDto> members = loadMembers(houseId, houseId.equals(findViewerHouseId(userId)));
         return HouseResponse.fromEntity(house, score, members);
     }
 
-    private List<HouseMemberSummaryDto> loadMembers(String houseId) {
+    private String findViewerHouseId(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return null;
+        }
+        return userRepository.findById(userId).map(User::getHouseId).orElse(null);
+    }
+
+    // Residents' e-mails are only visible to people who live in the same house (RNF09).
+    private List<HouseMemberSummaryDto> loadMembers(String houseId, boolean includeEmails) {
         return userRepository.findByHouseIdOrderByIdAsc(houseId).stream()
-                .map(HouseMemberSummaryDto::fromEntity)
+                .map(user -> HouseMemberSummaryDto.fromEntity(user, includeEmails))
                 .toList();
+    }
+
+    private void validateHouseAttributes(CreateHouseRequest request) {
+        if (request.getRentAmount() != null && request.getRentAmount().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessRuleException("Rent amount cannot be negative");
+        }
+        validateScale(request.getExpectedOrganizationLevel(), "expectedOrganizationLevel");
+        validateScale(request.getVisitorTolerance(), "visitorTolerance");
+    }
+
+    private void validateScale(Integer value, String fieldName) {
+        if (value != null && (value < 1 || value > 5)) {
+            throw new BusinessRuleException(fieldName + " must be between 1 and 5");
+        }
     }
 }
