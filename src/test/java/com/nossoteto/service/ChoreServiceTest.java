@@ -3,6 +3,7 @@ package com.nossoteto.service;
 import com.nossoteto.dto.ChoreResponse;
 import com.nossoteto.dto.CreateChoreRequest;
 import com.nossoteto.exception.BusinessRuleException;
+import com.nossoteto.exception.ForbiddenOperationException;
 import com.nossoteto.exception.ResourceNotFoundException;
 import com.nossoteto.model.Chore;
 import com.nossoteto.model.House;
@@ -126,8 +127,19 @@ class ChoreServiceTest {
                 choreService.completeChore("user-1", "house-1", "chore-1"));
     }
 
-    @Test
-    void rotateHouseChores_FlagsPendingAsDelayedResetsCompletedAndRotatesRotationalChores() {
+    private Chore chore(String id, ChoreType type, ChoreStatus status, String assigneeId) {
+        Chore chore = new Chore();
+        chore.setId(id);
+        chore.setHouseId("house-1");
+        chore.setDescription("Tarefa " + id);
+        chore.setChoreType(type);
+        chore.setCurrentAssigneeId(assigneeId);
+        chore.setStatus(status);
+        chore.setLastResetDate(LocalDate.now().minusDays(7));
+        return chore;
+    }
+
+    private void stubTwoMembersAndChores(Chore... chores) {
         User u1 = new User();
         u1.setId("user-1");
         u1.setHouseId("house-1");
@@ -136,41 +148,61 @@ class ChoreServiceTest {
         u2.setId("user-2");
         u2.setHouseId("house-1");
 
-        Chore pendingRotational = new Chore();
-        pendingRotational.setId("c-1");
-        pendingRotational.setHouseId("house-1");
-        pendingRotational.setDescription("Cozinha");
-        pendingRotational.setChoreType(ChoreType.ROTATIONAL);
-        pendingRotational.setCurrentAssigneeId("user-1");
-        pendingRotational.setStatus(ChoreStatus.PENDING);
-        pendingRotational.setLastResetDate(LocalDate.now().minusDays(7));
-
-        Chore completedFixed = new Chore();
-        completedFixed.setId("c-2");
-        completedFixed.setHouseId("house-1");
-        completedFixed.setDescription("Jardim");
-        completedFixed.setChoreType(ChoreType.FIXED);
-        completedFixed.setCurrentAssigneeId("user-1");
-        completedFixed.setStatus(ChoreStatus.COMPLETED);
-        completedFixed.setLastResetDate(LocalDate.now().minusDays(7));
-
         when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of(u1, u2));
-        when(choreRepository.findByHouseId("house-1")).thenReturn(List.of(pendingRotational, completedFixed));
+        when(choreRepository.findByHouseId("house-1")).thenReturn(List.of(chores));
         when(choreRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+    }
 
-        List<ChoreResponse> responses = choreService.rotateHouseChores("user-1", "house-1");
+    @Test
+    void rotateHouseChores_UnfinishedRotationalChoreBecomesDelayedAndStaysWithSameAssignee() {
+        stubTwoMembersAndChores(chore("c-1", ChoreType.ROTATIONAL, ChoreStatus.PENDING, "user-1"));
 
-        assertEquals(2, responses.size());
+        ChoreResponse r1 = choreService.rotateHouseChores("user-1", "house-1").get(0);
 
-        ChoreResponse r1 = responses.get(0);
         assertEquals(ChoreStatus.DELAYED, r1.getStatus());
-        assertEquals("user-2", r1.getCurrentAssigneeId());
+        assertEquals("user-1", r1.getCurrentAssigneeId());
         assertEquals(LocalDate.now(), r1.getLastResetDate());
+    }
 
-        ChoreResponse r2 = responses.get(1);
+    @Test
+    void rotateHouseChores_AlreadyDelayedChoreStaysDelayedUntilCompleted() {
+        stubTwoMembersAndChores(chore("c-1", ChoreType.ROTATIONAL, ChoreStatus.DELAYED, "user-1"));
+
+        ChoreResponse r1 = choreService.rotateHouseChores("user-1", "house-1").get(0);
+
+        assertEquals(ChoreStatus.DELAYED, r1.getStatus());
+        assertEquals("user-1", r1.getCurrentAssigneeId());
+    }
+
+    @Test
+    void rotateHouseChores_CompletedRotationalChoreResetsToPendingAndRotates() {
+        stubTwoMembersAndChores(chore("c-1", ChoreType.ROTATIONAL, ChoreStatus.COMPLETED, "user-1"));
+
+        ChoreResponse r1 = choreService.rotateHouseChores("user-1", "house-1").get(0);
+
+        assertEquals(ChoreStatus.PENDING, r1.getStatus());
+        assertEquals("user-2", r1.getCurrentAssigneeId());
+    }
+
+    @Test
+    void rotateHouseChores_CompletedFixedChoreResetsToPendingWithSameAssignee() {
+        stubTwoMembersAndChores(chore("c-2", ChoreType.FIXED, ChoreStatus.COMPLETED, "user-1"));
+
+        ChoreResponse r2 = choreService.rotateHouseChores("user-1", "house-1").get(0);
+
         assertEquals(ChoreStatus.PENDING, r2.getStatus());
         assertEquals("user-1", r2.getCurrentAssigneeId());
         assertEquals(LocalDate.now(), r2.getLastResetDate());
+    }
+
+    @Test
+    void rotateHouseChores_IsRestrictedToHouseAdmin() {
+        doThrow(new ForbiddenOperationException("User is not an administrator of this house"))
+                .when(houseAccessValidator).requireHouseAdmin("user-2", "house-1");
+
+        assertThrows(ForbiddenOperationException.class,
+                () -> choreService.rotateHouseChores("user-2", "house-1"));
+        verifyNoInteractions(choreRepository);
     }
 
     @Test

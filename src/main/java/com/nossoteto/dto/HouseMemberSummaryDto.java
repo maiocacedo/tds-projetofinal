@@ -1,11 +1,13 @@
 package com.nossoteto.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.nossoteto.model.User;
 
 public class HouseMemberSummaryDto {
 
     private String id;
     private String name;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private String email;
     private Boolean isHouseAdmin;
 
@@ -19,14 +21,14 @@ public class HouseMemberSummaryDto {
         this.isHouseAdmin = isHouseAdmin;
     }
 
-    public static HouseMemberSummaryDto fromEntity(User user) {
+    public static HouseMemberSummaryDto fromEntity(User user, boolean includeEmail) {
         if (user == null) {
             return null;
         }
         return new HouseMemberSummaryDto(
                 user.getId(),
                 user.getName(),
-                user.getEmail(),
+                includeEmail ? user.getEmail() : null,
                 user.getIsHouseAdmin()
         );
     }

@@ -3,6 +3,7 @@ package com.nossoteto.service;
 import com.nossoteto.dto.CreateHouseRequest;
 import com.nossoteto.dto.HouseResponse;
 import com.nossoteto.exception.BusinessRuleException;
+import com.nossoteto.exception.ForbiddenOperationException;
 import com.nossoteto.exception.ResourceNotFoundException;
 import com.nossoteto.model.House;
 import com.nossoteto.model.User;
@@ -192,5 +193,129 @@ class HouseServiceTest {
 
         assertThrows(ResourceNotFoundException.class,
                 () -> houseService.getHouseDetails("user-1", "missing"));
+    }
+
+    @Test
+    void createHouseShouldRejectUserWhoAlreadyBelongsToAHouse() {
+        User resident = new User();
+        resident.setId("user-1");
+        resident.setHouseId("house-A");
+        resident.setIsHouseAdmin(true);
+        when(houseAccessValidator.requireAuthenticatedUser("user-1")).thenReturn(resident);
+
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setName("Outra Casa");
+
+        assertThrows(BusinessRuleException.class, () -> houseService.createHouse("user-1", request));
+        assertEquals("house-A", resident.getHouseId());
+        verifyNoInteractions(houseRepository);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void createHouseShouldRejectScaleOutsideOneToFive() {
+        User creator = new User();
+        creator.setId("user-1");
+        when(houseAccessValidator.requireAuthenticatedUser("user-1")).thenReturn(creator);
+
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setName("Casa");
+        request.setVisitorTolerance(9);
+
+        assertThrows(BusinessRuleException.class, () -> houseService.createHouse("user-1", request));
+        verifyNoInteractions(houseRepository);
+    }
+
+    private User resident(String id, String houseId, String email) {
+        User user = new User();
+        user.setId(id);
+        user.setHouseId(houseId);
+        user.setEmail(email);
+        return user;
+    }
+
+    @Test
+    void getHouseDetailsShouldHideResidentEmailsFromNonResidents() {
+        House house = new House();
+        house.setId("house-1");
+
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(userRepository.findById("visitor")).thenReturn(Optional.of(resident("visitor", null, "v@test.com")));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1"))
+                .thenReturn(List.of(resident("user-2", "house-1", "bob@test.com")));
+
+        HouseResponse response = houseService.getHouseDetails("visitor", "house-1");
+
+        assertEquals("user-2", response.getMembers().get(0).getId());
+        assertNull(response.getMembers().get(0).getEmail());
+    }
+
+    @Test
+    void getHouseDetailsShouldShowResidentEmailsToResidents() {
+        House house = new House();
+        house.setId("house-1");
+
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(userRepository.findById("user-1")).thenReturn(Optional.of(resident("user-1", "house-1", "a@test.com")));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1"))
+                .thenReturn(List.of(resident("user-2", "house-1", "bob@test.com")));
+
+        HouseResponse response = houseService.getHouseDetails("user-1", "house-1");
+
+        assertEquals("bob@test.com", response.getMembers().get(0).getEmail());
+    }
+
+    @Test
+    void listOpenHousesShouldHideResidentEmailsFromCandidates() {
+        House house = new House();
+        house.setId("house-1");
+        house.setIsAcceptingMatches(true);
+
+        when(houseRepository.findByIsAcceptingMatchesTrue()).thenReturn(List.of(house));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1"))
+                .thenReturn(List.of(resident("user-2", "house-1", "bob@test.com")));
+
+        List<HouseResponse> result = houseService.listOpenHouses("candidate", null, null, null);
+
+        assertNull(result.get(0).getMembers().get(0).getEmail());
+    }
+
+    @Test
+    void updateHouseShouldApplyOnlyProvidedFieldsWhenCalledByAdmin() {
+        House house = new House();
+        house.setId("house-1");
+        house.setName("Solar");
+        house.setRentAmount(new BigDecimal("1000.00"));
+        house.setVotingRule(VotingRule.UNANIMITY);
+        house.setIsAcceptingMatches(true);
+
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(houseRepository.save(any(House.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of());
+
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setIsAcceptingMatches(false);
+        request.setVotingRule(VotingRule.MAJORITY);
+
+        HouseResponse response = houseService.updateHouse("admin-1", "house-1", request);
+
+        verify(houseAccessValidator).requireHouseAdmin("admin-1", "house-1");
+        assertFalse(response.getIsAcceptingMatches());
+        assertEquals(VotingRule.MAJORITY, response.getVotingRule());
+        assertEquals("Solar", response.getName());
+        assertEquals(new BigDecimal("1000.00"), response.getRentAmount());
+    }
+
+    @Test
+    void updateHouseShouldBeForbiddenForNonAdmin() {
+        doThrow(new ForbiddenOperationException("User is not an administrator of this house"))
+                .when(houseAccessValidator).requireHouseAdmin("user-2", "house-1");
+
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setIsAcceptingMatches(false);
+
+        assertThrows(ForbiddenOperationException.class,
+                () -> houseService.updateHouse("user-2", "house-1", request));
+        verifyNoInteractions(houseRepository);
     }
 }

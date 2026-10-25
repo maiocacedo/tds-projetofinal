@@ -49,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -182,6 +183,71 @@ class ExpenseServiceTest {
     }
 
     @Test
+    void proposeCustomSplitShouldRejectDuplicatedUserIdEvenWhenSumMatchesTotal() {
+        String houseId = "house-1";
+        Expense expense = new Expense();
+        expense.setId("exp-1");
+        expense.setHouseId(houseId);
+        expense.setTotalAmount(new BigDecimal("100.00"));
+        expense.setSplitType(SplitType.EQUAL);
+
+        when(expenseRepository.findById("exp-1")).thenReturn(Optional.of(expense));
+
+        ProposeSplitRequest request = new ProposeSplitRequest();
+        request.setSplitMode("VALOR");
+        ProposeSplitRequest.SplitItem item1 = new ProposeSplitRequest.SplitItem();
+        item1.setUserId("u1");
+        item1.setAmountOrPercentage(new BigDecimal("50.00"));
+        ProposeSplitRequest.SplitItem item2 = new ProposeSplitRequest.SplitItem();
+        item2.setUserId("u1");
+        item2.setAmountOrPercentage(new BigDecimal("50.00"));
+        request.setSplits(List.of(item1, item2));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> expenseService.proposeCustomSplit("u1", houseId, "exp-1", request));
+        assertTrue(ex.getMessage().contains("Duplicate userId"));
+        verify(expenseSplitRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void voteOnCustomSplitShouldIgnoreVotesFromFormerResidents() {
+        String houseId = "house-1";
+        Expense expense = new Expense();
+        expense.setId("exp-1");
+        expense.setHouseId(houseId);
+        expense.setTotalAmount(new BigDecimal("100.00"));
+        expense.setSplitType(SplitType.CUSTOM_PENDING);
+
+        House house = new House();
+        house.setId(houseId);
+        house.setVotingRule(VotingRule.UNANIMITY);
+
+        ExpenseSplitVote currentVote = new ExpenseSplitVote();
+        currentVote.setVoterId("u1");
+        currentVote.setVote(VoteType.APPROVE);
+
+        ExpenseSplitVote formerResidentVote = new ExpenseSplitVote();
+        formerResidentVote.setVoterId("former");
+        formerResidentVote.setVote(VoteType.APPROVE);
+
+        when(expenseRepository.findById("exp-1")).thenReturn(Optional.of(expense));
+        when(expenseSplitVoteRepository.findByExpenseIdAndVoterId("exp-1", "u1")).thenReturn(Optional.empty());
+        when(houseRepository.findById(houseId)).thenReturn(Optional.of(house));
+        when(userRepository.findByHouseIdOrderByIdAsc(houseId))
+                .thenReturn(List.of(createMember("u1", houseId), createMember("u2", houseId)));
+        when(expenseSplitVoteRepository.findByExpenseId("exp-1")).thenReturn(List.of(currentVote, formerResidentVote));
+        when(votingEvaluator.evaluate(VotingRule.UNANIMITY, 2, 1, 0)).thenReturn(VotingOutcome.PENDING);
+
+        VoteRequestDto voteDto = new VoteRequestDto();
+        voteDto.setVote("APROVAR");
+
+        ExpenseResponse response = expenseService.voteOnCustomSplit("u1", houseId, "exp-1", voteDto);
+
+        assertEquals(SplitType.CUSTOM_PENDING, response.getSplitType());
+        verify(votingEvaluator).evaluate(VotingRule.UNANIMITY, 2, 1, 0);
+    }
+
+    @Test
     void proposeAndVoteCustomSplitShouldApplyAmountsWhenApproved() {
         String houseId = "house-1";
         Expense expense = new Expense();
@@ -246,7 +312,8 @@ class ExpenseServiceTest {
         when(expenseSplitVoteRepository.findByExpenseIdAndVoterId("exp-1", "u2")).thenReturn(Optional.empty());
         when(expenseSplitVoteRepository.findByExpenseId("exp-1")).thenReturn(List.of(v1, v2));
         when(houseRepository.findById(houseId)).thenReturn(Optional.of(house));
-        when(userRepository.countByHouseId(houseId)).thenReturn(2L);
+        when(userRepository.findByHouseIdOrderByIdAsc(houseId))
+                .thenReturn(List.of(createMember("u1", houseId), createMember("u2", houseId)));
         when(votingEvaluator.evaluate(VotingRule.UNANIMITY, 2, 2, 0)).thenReturn(VotingOutcome.APPROVED);
 
         VoteRequestDto voteDto = new VoteRequestDto();

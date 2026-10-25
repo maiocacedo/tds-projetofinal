@@ -3,9 +3,11 @@ package com.nossoteto.controller;
 import com.nossoteto.dto.CreateHouseRequest;
 import com.nossoteto.dto.HouseMemberSummaryDto;
 import com.nossoteto.dto.HouseResponse;
+import com.nossoteto.exception.ForbiddenOperationException;
 import com.nossoteto.model.enums.VotingRule;
 import com.nossoteto.security.JwtAuthenticationFilter;
 import com.nossoteto.security.JwtTokenProvider;
+import com.nossoteto.service.HouseMembershipService;
 import com.nossoteto.service.HouseService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -24,10 +26,13 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,6 +45,9 @@ class HouseControllerTest {
 
     @MockBean
     private HouseService houseService;
+
+    @MockBean
+    private HouseMembershipService houseMembershipService;
 
     @MockBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -141,5 +149,68 @@ class HouseControllerTest {
                 .andExpect(jsonPath("$.id").value("house-1"))
                 .andExpect(jsonPath("$.compatibilityScore").value(85))
                 .andExpect(jsonPath("$.members[0].name").value("Bob"));
+    }
+
+    @Test
+    void hiddenMemberEmailShouldBeOmittedFromJson() throws Exception {
+        HouseResponse response = new HouseResponse();
+        response.setId("house-1");
+        response.setMembers(List.of(new HouseMemberSummaryDto("user-2", "Bob", null, true)));
+
+        when(houseService.getHouseDetails("visitor", "house-1")).thenReturn(response);
+
+        mockMvc.perform(get("/api/houses/house-1").principal(auth("visitor")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.members[0].name").value("Bob"))
+                .andExpect(jsonPath("$.members[0].email").doesNotExist());
+    }
+
+    @Test
+    void updateHouseShouldAcceptPortugueseAliasesAndDelegateToService() throws Exception {
+        HouseResponse response = new HouseResponse();
+        response.setId("house-1");
+        response.setIsAcceptingMatches(false);
+
+        when(houseService.updateHouse(eq("admin-1"), eq("house-1"), any(CreateHouseRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(put("/api/houses/house-1")
+                        .principal(auth("admin-1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aceitandoMatches\": false, \"regraVotacao\": \"MAJORITY\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isAcceptingMatches").value(false));
+
+        ArgumentCaptor<CreateHouseRequest> captor = ArgumentCaptor.forClass(CreateHouseRequest.class);
+        verify(houseService).updateHouse(eq("admin-1"), eq("house-1"), captor.capture());
+        assertFalse(captor.getValue().getIsAcceptingMatches());
+        assertEquals(VotingRule.MAJORITY, captor.getValue().getVotingRule());
+        assertNull(captor.getValue().getName());
+    }
+
+    @Test
+    void leaveHouseShouldReturn204() throws Exception {
+        mockMvc.perform(post("/api/houses/house-1/leave").principal(auth("user-1")))
+                .andExpect(status().isNoContent());
+
+        verify(houseMembershipService).leaveHouse("user-1", "house-1");
+    }
+
+    @Test
+    void removeMemberShouldReturn204() throws Exception {
+        mockMvc.perform(delete("/api/houses/house-1/members/user-2").principal(auth("admin-1")))
+                .andExpect(status().isNoContent());
+
+        verify(houseMembershipService).removeMember("admin-1", "house-1", "user-2");
+    }
+
+    @Test
+    void removeMemberByNonAdminShouldReturn403() throws Exception {
+        doThrow(new ForbiddenOperationException("User is not an administrator of this house"))
+                .when(houseMembershipService).removeMember("user-3", "house-1", "user-2");
+
+        mockMvc.perform(delete("/api/houses/house-1/members/user-2").principal(auth("user-3")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("User is not an administrator of this house"));
     }
 }

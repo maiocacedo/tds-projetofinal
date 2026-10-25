@@ -3,7 +3,7 @@ package com.nossoteto.controller;
 import com.nossoteto.dto.AuthResponse;
 import com.nossoteto.dto.LoginRequest;
 import com.nossoteto.dto.RegisterRequest;
-import com.nossoteto.model.User;
+import com.nossoteto.dto.RegisterResponse;
 import com.nossoteto.service.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,8 +20,8 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<User> register(@RequestBody RegisterRequest request) {
-        User user = authService.registerUser(request);
+    public ResponseEntity<RegisterResponse> register(@RequestBody RegisterRequest request) {
+        RegisterResponse user = authService.registerUser(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
 
