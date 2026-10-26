@@ -1,11 +1,12 @@
 # Modelagem do Banco de Dados - Nosso Teto
 
-Este documento descreve o esquema de banco de dados (MySQL) para o Checkpoint 1 da aplicação. O versionamento do banco será gerido via **Flyway**.
+Este documento descreve o esquema de banco de dados (MySQL / H2) para os Checkpoints 1 e 2 da aplicação. O versionamento do banco é gerido via **Flyway** (`V1__Initial_schema.sql` e `V2__Checkpoint2_full_schema.sql`).
 
 ## Entidades Principais e Relacionamentos
 
 ### 1. `users` (Usuários)
 - `id` (PK, UUID)
+- `name` (VARCHAR, NULLABLE)
 - `email` (VARCHAR, UNIQUE, NOT NULL)
 - `password_hash` (VARCHAR, NOT NULL) - *Criptografado (Bcrypt)*
 - `house_id` (FK para `houses`, NULLABLE)
@@ -20,8 +21,8 @@ Este documento descreve o esquema de banco de dados (MySQL) para o Checkpoint 1 
 - `profession` (VARCHAR)
 - `bio` (TEXT)
 - `allergies` (VARCHAR)
-- `organization_level` (INT/ENUM)
-- `visitor_tolerance` (INT/ENUM)
+- `organization_level` (INT)
+- `visitor_tolerance` (INT)
 - `has_furniture` (BOOLEAN)
 
 ### 3. `houses` (Casas)
@@ -29,7 +30,16 @@ Este documento descreve o esquema de banco de dados (MySQL) para o Checkpoint 1 
 - `name` (VARCHAR, NOT NULL)
 - `address` (VARCHAR)
 - `description` (TEXT)
+- `basic_rules` (TEXT)
+- `rent_amount` (DECIMAL)
+- `allows_pets` (BOOLEAN, DEFAULT TRUE)
+- `allows_smokers` (BOOLEAN, DEFAULT FALSE)
+- `expected_organization_level` (INT, DEFAULT 3)
+- `visitor_tolerance` (INT, DEFAULT 3)
+- `has_furniture` (BOOLEAN, DEFAULT FALSE)
+- `voting_rule` (ENUM: UNANIMITY, MAJORITY, DEFAULT 'UNANIMITY')
 - `is_accepting_matches` (BOOLEAN, DEFAULT TRUE)
+- `created_at`, `updated_at` (TIMESTAMP)
 
 ### 4. `match_requests` (Solicitações de Match)
 - `id` (PK, UUID)
@@ -50,7 +60,7 @@ Este documento descreve o esquema de banco de dados (MySQL) para o Checkpoint 1 
 - `title` (VARCHAR)
 - `total_amount` (DECIMAL)
 - `due_date` (DATE)
-- `attachment_url` (VARCHAR) - *Caminho seguro/criptografado*
+- `attachment_url` (VARCHAR) - *Caminho seguro em disco protegido por validação de morador*
 - `split_type` (ENUM: EQUAL, CUSTOM_PENDING, CUSTOM_APPROVED)
 
 ### 7. `expense_splits` (Divisões da Despesa / Pagamentos)
@@ -58,9 +68,16 @@ Este documento descreve o esquema de banco de dados (MySQL) para o Checkpoint 1 
 - `expense_id` (FK para `expenses`)
 - `user_id` (FK para `users`)
 - `amount_due` (DECIMAL)
+- `proposed_amount_due` (DECIMAL, NULLABLE)
 - `is_paid` (BOOLEAN, DEFAULT FALSE)
 
-### 8. `chores` (Tarefas)
+### 8. `expense_split_votes` (Votos na Divisão Customizada da Despesa)
+- `id` (PK, UUID)
+- `expense_id` (FK para `expenses`)
+- `voter_id` (FK para `users`)
+- `vote` (ENUM: APPROVE, REJECT)
+
+### 9. `chores` (Tarefas)
 - `id` (PK, UUID)
 - `house_id` (FK para `houses`)
 - `description` (VARCHAR)
@@ -69,7 +86,7 @@ Este documento descreve o esquema de banco de dados (MySQL) para o Checkpoint 1 
 - `status` (ENUM: PENDING, COMPLETED, DELAYED)
 - `last_reset_date` (DATE)
 
-### 9. `groceries` (Itens de Mercado)
+### 10. `groceries` (Itens de Mercado)
 - `id` (PK, UUID)
 - `house_id` (FK para `houses`)
 - `item_name` (VARCHAR)

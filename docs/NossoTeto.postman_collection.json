@@ -1,0 +1,1084 @@
+{
+  "info": {
+    "_postman_id": "8f7e4b2a-9d1c-4e3a-8b5c-1a2b3c4d5e6f",
+    "name": "Nosso Teto API - Checkpoint 2",
+    "description": "Collection completa da API REST do sistema Nosso Teto (Checkpoints 1 e 2).\n\nVariáveis de coleção preenchidas automaticamente nos scripts de Pós-Resposta (Tests):\n- `token` e `userId` (ao rodar '1.2 Login (Morador 1)')\n- `candidateToken` e `candidateId` (ao rodar '1.4 Login (Candidato 2)')\n- `houseId` (ao rodar '3.1 Criar Casa')\n- `matchRequestId` (ao rodar '4.1 Solicitar Match (Candidato 2)')\n- `expenseId` (ao rodar '5.1 Criar Despesa com Comprovante')\n- `choreId` (ao rodar '6.1 Criar Tarefa Doméstica')\n- `groceryId` (ao rodar '7.1 Adicionar Item de Mercado')",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "candidateToken",
+      "value": ""
+    },
+    {
+      "key": "candidateId",
+      "value": ""
+    },
+    {
+      "key": "houseId",
+      "value": ""
+    },
+    {
+      "key": "matchRequestId",
+      "value": ""
+    },
+    {
+      "key": "expenseId",
+      "value": ""
+    },
+    {
+      "key": "choreId",
+      "value": ""
+    },
+    {
+      "key": "groceryId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticação (Auth)",
+      "item": [
+        {
+          "name": "1.1 Registrar (Morador 1 - Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) pm.collectionVariables.set('userId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Caio Admin\",\n  \"email\": \"caio@nossoteto.com\",\n  \"senha\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.2 Login (Morador 1 - Salva token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    if (json.userId) pm.collectionVariables.set('userId', json.userId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"caio@nossoteto.com\",\n  \"senha\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.3 Registrar (Candidato 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) pm.collectionVariables.set('candidateId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Ana Candidata\",\n  \"email\": \"ana@nossoteto.com\",\n  \"senha\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.4 Login (Candidato 2 - Salva candidateToken)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('candidateToken', json.token);",
+                  "    if (json.userId) pm.collectionVariables.set('candidateId', json.userId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana@nossoteto.com\",\n  \"senha\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Usuários e Perfis",
+      "item": [
+        {
+          "name": "2.1 Atualizar Perfil (Morador 1)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orcamentoMensal\": 1500.00,\n  \"possuiPets\": true,\n  \"fumante\": false,\n  \"profissao\": \"Engenheiro de Software\",\n  \"biografia\": \"Tranquilo e organizado\",\n  \"alergias\": \"Nenhuma\",\n  \"nivelOrganizacao\": 4,\n  \"toleranciaVisitas\": 3,\n  \"mobiliaPropria\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.2 Atualizar Perfil (Candidato 2)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{candidateToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orcamentoMensal\": 1400.00,\n  \"possuiPets\": false,\n  \"fumante\": false,\n  \"profissao\": \"Designer\",\n  \"biografia\": \"Gosto de cozinhar\",\n  \"alergias\": \"Poeira\",\n  \"nivelOrganizacao\": 4,\n  \"toleranciaVisitas\": 3,\n  \"mobiliaPropria\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.3 Consultar Meus Dados (/api/users/me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Casas / Repúblicas",
+      "item": [
+        {
+          "name": "3.1 Criar Casa (Salva houseId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('houseId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"República Nosso Teto\",\n  \"endereco\": \"Rua das Flores, 123\",\n  \"descricao\": \"Casa ampla próxima à universidade\",\n  \"regrasBasicas\": \"Silêncio após as 22h e limpeza aos sábados\",\n  \"valorAluguel\": 1200.00,\n  \"aceitaPets\": true,\n  \"aceitaFumantes\": false,\n  \"nivelOrganizacaoEsperado\": 4,\n  \"toleranciaVisitas\": 3,\n  \"mobiliaExistente\": true,\n  \"regraVotacao\": \"UNANIMITY\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/houses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.2 Listar Casas com Vagas (Visão Candidato 2 + Compatibilidade)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{candidateToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses?orcamentoMaximo=1500&aceitaPets=true&aceitaFumantes=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses"
+              ],
+              "query": [
+                {
+                  "key": "orcamentoMaximo",
+                  "value": "1500"
+                },
+                {
+                  "key": "aceitaPets",
+                  "value": "true"
+                },
+                {
+                  "key": "aceitaFumantes",
+                  "value": "false"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.3 Detalhes da Casa (GET /api/houses/{id})",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.4 Atualizar Casa (Admin PUT /api/houses/{id})",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Casa ampla e reformada próxima à universidade\",\n  \"valorAluguel\": 1250.00,\n  \"aceitandoMatches\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Match e Votação",
+      "item": [
+        {
+          "name": "4.1 Solicitar Match na Casa (Candidato 2 - Salva matchRequestId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('matchRequestId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{candidateToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"houseId\": \"{{houseId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "matches",
+                "requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.2 Listar Solicitações de Match da Casa (Morador 1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/matches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "matches"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.3 Votar na Solicitação de Match (Morador 1 - APROVAR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voto\": \"APROVAR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/requests/{{matchRequestId}}/vote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "matches",
+                "requests",
+                "{{matchRequestId}}",
+                "vote"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.4 Cancelar Outras Solicitações Pendentes (RF06 - Candidato 2)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{candidateToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/requests/cancel-others",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "matches",
+                "requests",
+                "cancel-others"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Financeiro (Despesas)",
+      "item": [
+        {
+          "name": "5.1 Criar Despesa com Comprovante (Salva expenseId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('expenseId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Conta de Energia Elétrica\",\n  \"valorTotal\": 300.00,\n  \"vencimento\": \"2026-11-15\",\n  \"anexoBase64\": \"Q29tcHJvdmFudGUgZGUgUGFnYW1lbnRvIC0gQ0VNSUc=\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/expenses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "expenses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.2 Listar Despesas da Casa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/expenses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "expenses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.3 Baixar Comprovante da Despesa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/expenses/{{expenseId}}/attachment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "expenses",
+                "{{expenseId}}",
+                "attachment"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.4 Propor Divisão Customizada (70% / 30%)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDivisao\": \"PORCENTAGEM\",\n  \"divisoes\": [\n    {\n      \"userId\": \"{{userId}}\",\n      \"valorOuPorcentagem\": 70\n    },\n    {\n      \"userId\": \"{{candidateId}}\",\n      \"valorOuPorcentagem\": 30\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/expenses/{{expenseId}}/propose-split",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "expenses",
+                "{{expenseId}}",
+                "propose-split"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.5 Votar na Divisão Customizada (Morador 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voto\": \"APROVAR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/expenses/{{expenseId}}/vote-split",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "expenses",
+                "{{expenseId}}",
+                "vote-split"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.6 Votar na Divisão Customizada (Morador 2)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{candidateToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voto\": \"APROVAR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/expenses/{{expenseId}}/vote-split",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "expenses",
+                "{{expenseId}}",
+                "vote-split"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.7 Marcar Minha Parcela como Paga",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/expenses/{{expenseId}}/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "expenses",
+                "{{expenseId}}",
+                "pay"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Tarefas Domésticas",
+      "item": [
+        {
+          "name": "6.1 Criar Tarefa Doméstica (Salva choreId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('choreId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Limpar a cozinha e tirar o lixo\",\n  \"tipo\": \"ROTATIVA\",\n  \"responsavelId\": \"{{userId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/chores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "chores"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6.2 Listar Tarefas da Casa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/chores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "chores"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6.3 Marcar Tarefa como Concluída",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/chores/{{choreId}}/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "chores",
+                "{{choreId}}",
+                "complete"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6.4 Forçar Fechamento/Rotação Semanal (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/chores/rotate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "chores",
+                "rotate"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Mercado",
+      "item": [
+        {
+          "name": "7.1 Adicionar Item de Mercado (Salva groceryId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('groceryId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeItem\": \"Café em pó 500g\",\n  \"quantidade\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/groceries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "groceries"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.2 Listar Itens de Mercado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/groceries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "groceries"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.3 Assumir Compra do Item",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/groceries/{{groceryId}}/assign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "groceries",
+                "{{groceryId}}",
+                "assign"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.4 Marcar Item como Comprado",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/groceries/{{groceryId}}/purchase",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "groceries",
+                "{{groceryId}}",
+                "purchase"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Dashboard e Gestão de Moradores",
+      "item": [
+        {
+          "name": "8.1 Consultar Dashboard da Casa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "dashboard"
+              ]
+            }
+          }
+        },
+        {
+          "name": "8.2 Remover Morador (Admin DELETE /members/{memberId})",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/members/{{candidateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "members",
+                "{{candidateId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "8.3 Sair da Casa (POST /api/houses/{id}/leave)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/houses/{{houseId}}/leave",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "houses",
+                "{{houseId}}",
+                "leave"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
