@@ -32,7 +32,7 @@
 |---|---|---|
 | Coordenador + revisor final | sessão atual (Claude) | — |
 | Builder (tarefas diretas) | `--agent antigravity` | `gemini-4-hydrogen-high` |
-| Builder (tarefas complexas) | `--agent antigravity` | **neon** (ID resolvido no Passo 0) |
+| Builder (tarefas complexas) | `--agent antigravity` | `gemini-4-neon-high` (confirmado no Passo 0 via `worker-read`: "Gemini 4 Neon (High)") |
 | Crítico Nível 2 (só Gauntlet) | `--agent claude` (contexto isolado, somente leitura) | padrão do Claude Code |
 
 ### Mapa de tarefas
