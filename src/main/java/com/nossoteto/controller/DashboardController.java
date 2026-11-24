@@ -3,6 +3,7 @@ package com.nossoteto.controller;
 import com.nossoteto.dto.DashboardResponse;
 import com.nossoteto.service.DashboardService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +21,7 @@ public class DashboardController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_VIEW_DASHBOARD') and hasAuthority('SCOPE_read')")
     public ResponseEntity<DashboardResponse> getHouseDashboard(
             Authentication authentication,
             @PathVariable String houseId) {
