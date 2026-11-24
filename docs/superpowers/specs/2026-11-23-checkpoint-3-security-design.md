@@ -70,7 +70,7 @@ Removidos: `JwtTokenProvider`, `JwtAuthenticationFilter`, `SecurityConfig`, `Jwt
 ### 3.1. `V3__Security_permissions_and_refresh_tokens.sql`
 - `permissions (id INT PK, name VARCHAR(60) UNIQUE NOT NULL, description VARCHAR(255))`.
 - `user_permissions (user_id VARCHAR(36), permission_id INT, PK(user_id, permission_id))`, FKs `fk_user_permissions_user` (CASCADE) e `fk_user_permissions_permission`.
-- `refresh_tokens (id VARCHAR(36) PK, token_hash CHAR(64) UNIQUE NOT NULL, family_id VARCHAR(36) NOT NULL, user_id VARCHAR(36) NOT NULL, client_id VARCHAR(100) NOT NULL, scope VARCHAR(100) NOT NULL, expires_at TIMESTAMP NOT NULL, used_at TIMESTAMP NULL, revoked_at TIMESTAMP NULL, created_at TIMESTAMP NOT NULL)`, FK `fk_refresh_tokens_user` (CASCADE), índice `idx_refresh_tokens_family`.
+- `refresh_tokens (id VARCHAR(36) PK, token_hash VARCHAR(64) UNIQUE NOT NULL, family_id VARCHAR(36) NOT NULL, user_id VARCHAR(36) NOT NULL, client_id VARCHAR(100) NOT NULL, scope VARCHAR(100) NOT NULL, expires_at TIMESTAMP NOT NULL, used_at TIMESTAMP NULL, revoked_at TIMESTAMP NULL, created_at TIMESTAMP NOT NULL)`, FK `fk_refresh_tokens_user` (CASCADE), índice `idx_refresh_tokens_family`.
 - Seed do catálogo de 9 permissões (seção 4).
 - **Backfill:** todo usuário existente recebe todas as permissões exceto `ROLE_ADMIN_USERS`.
 

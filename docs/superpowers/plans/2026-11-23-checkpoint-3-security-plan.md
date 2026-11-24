@@ -314,16 +314,12 @@ Em `AuthServiceTest`: adicionar `@Mock private PermissionRepository permissionRe
 ```java
     @Test
     void registerShouldGrantDefaultPermissions() {
-        RegisterRequest request = new RegisterRequest();
-        request.setEmail("novo@nossoteto.com");
-        request.setPassword("senha123");
         Permission manageProfile = new Permission(1, Permissions.MANAGE_PROFILE, "x");
         when(userRepository.findByEmail("novo@nossoteto.com")).thenReturn(Optional.empty());
-        when(passwordEncoder.encode("senha123")).thenReturn("hash");
         when(permissionRepository.findByNameNot(Permissions.ADMIN_USERS)).thenReturn(List.of(manageProfile));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        authService.registerUser(request);
+        authService.registerUser(new RegisterRequest("Novo", "novo@nossoteto.com", "senha123"));
 
         ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(saved.capture());
@@ -331,7 +327,7 @@ Em `AuthServiceTest`: adicionar `@Mock private PermissionRepository permissionRe
     }
 ```
 
-(Ajustar os imports: `Permission`, `Permissions`, `PermissionRepository`, `ArgumentCaptor`, `Set`, `List`. Se o teste existente de registro usa um setter diferente de `setEmail`/`setPassword`, seguir o padrão já usado no arquivo.)
+(O `passwordEncoder` do teste é um `BCryptPasswordEncoder` real — não fazer stub. Imports novos: `Permission`, `Permissions`, `PermissionRepository`, `Set`, `List`. Nos testes de registro já existentes, adicionar o stub `when(permissionRepository.findByNameNot(Permissions.ADMIN_USERS)).thenReturn(List.of());` se o Mockito strict reclamar.)
 
 Em `MySqlSchemaCompatibilityTest`: adicionar `.addAnnotatedClass(Permission.class)` e `.addAnnotatedClass(RefreshToken.class)` à lista.
 
@@ -359,7 +355,7 @@ CREATE TABLE user_permissions (
 
 CREATE TABLE refresh_tokens (
     id VARCHAR(36) PRIMARY KEY,
-    token_hash CHAR(64) NOT NULL UNIQUE,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
     family_id VARCHAR(36) NOT NULL,
     user_id VARCHAR(36) NOT NULL,
     client_id VARCHAR(100) NOT NULL,
@@ -482,7 +478,7 @@ public class RefreshToken {
     @Id
     private String id;
 
-    @Column(name = "token_hash", nullable = false, unique = true, length = 64, columnDefinition = "CHAR(64)")
+    @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;
 
     @Column(name = "family_id", nullable = false, length = 36)
@@ -531,8 +527,6 @@ public class RefreshToken {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
 ```
-
-Se `ddl-auto=validate` reclamar do `CHAR(64)` no H2/MySQL, manter `columnDefinition = "CHAR(64)"` (já incluso) — não alterar a migration.
 
 `src/main/java/com/nossoteto/repository/PermissionRepository.java`:
 
@@ -645,7 +639,8 @@ git commit -m "feat: add V3 migration with permissions catalog, refresh tokens a
 - Modify: `src/main/java/com/nossoteto/controller/AuthController.java` (remover `login`)
 - Modify: `src/main/java/com/nossoteto/service/AuthService.java` (remover `loginUser` e o `JwtTokenProvider`)
 - Modify: os 7 controllers com `extractUserId`: `ChoreController`, `DashboardController`, `ExpenseController`, `GroceryController`, `HouseController`, `MatchController`, `UserController`
-- Modify: `src/test/java/com/nossoteto/service/AuthServiceTest.java` (remover os 3 testes de login e o mock do `JwtTokenProvider`)
+- Modify: `src/test/java/com/nossoteto/service/AuthServiceTest.java` (remover os 3 testes de login, o campo `JwtTokenProvider` e os imports de `AuthResponse`/`LoginRequest`/`JwtTokenProvider`)
+- Modify: `src/test/java/com/nossoteto/controller/ExpenseControllerTest.java`, `HouseControllerTest.java`, `MatchControllerTest.java`, `UserControllerTest.java` (remover os `@MockBean JwtAuthenticationFilter` / `@MockBean JwtTokenProvider` e seus imports — sem isso a árvore de testes não compila)
 - Modify: `src/test/java/com/nossoteto/integration/NossoTetoIntegrationTest.java` (`loginUser`)
 - Modify: `src/test/java/com/nossoteto/integration/ApiErrorHandlingTest.java` (login no `@BeforeEach` e teste de senha errada)
 - Create: `src/test/java/com/nossoteto/security/ClientAuthenticatorTest.java`
@@ -1548,8 +1543,9 @@ class RefreshTokenServiceTest {
         a.get(10, TimeUnit.SECONDS);
         b.get(10, TimeUnit.SECONDS);
         pool.shutdown();
-        assertTrue(ok.get() <= 1, "at most one rotation may succeed");
-        assertEquals(2, ok.get() + failed.get());
+        // The first writer never waits on a lock, so exactly one success is deterministic (INV-06).
+        assertEquals(1, ok.get(), "exactly one rotation must succeed");
+        assertEquals(1, failed.get());
     }
 }
 ```
@@ -3170,7 +3166,8 @@ pm.test("refresh token só no cookie", () => pm.expect(body.refresh_token).to.be
 ```
 
 - [ ] **Step 3: Postman — nova pasta "9. Segurança (Checkpoint 3)"**, nesta ordem:
-  1. `9.1 Refresh Token (cookie)` — `POST /oauth/token`, Basic client, `grant_type=refresh_token`; teste salva o novo `access_token` em `token` e verifica `pm.cookies.has("refresh_token")`.
+  > O cookie jar do Postman guarda o refresh **do último login** (após 1.4 é o candidato; após 9.7 é o admin). Por isso: 9.1 salva em `candidateToken`, e há um re-login do candidato antes do logout.
+  1. `9.1 Refresh Token (cookie do candidato)` — `POST /oauth/token`, Basic client, `grant_type=refresh_token`; teste salva o novo `access_token` em `candidateToken` e verifica `pm.cookies.has("refresh_token")`.
   2. `9.2 Sem token → 401` — `GET /api/users/me` com `auth: noauth`; teste `status 401` e `error == "Authentication required"`.
   3. `9.3 Client mobile (scope read)` — `POST /oauth/token` com Basic `{{mobileClientId}}`/`{{mobileClientSecret}}`, `grant_type=password`; salva `mobileToken`.
   4. `9.4 Mobile tenta escrever → 403` — `POST /api/houses` com bearer `{{mobileToken}}`; teste `403` + `Insufficient permission`.
@@ -3180,8 +3177,9 @@ pm.test("refresh token só no cookie", () => pm.expect(body.refresh_token).to.be
   8. `9.8 Admin lista usuários` — `GET /api/admin/users` bearer `{{adminToken}}`.
   9. `9.9 Admin remove ROLE_MANAGE_HOUSE do candidato` — `PUT /api/admin/users/{{candidateId}}/permissions` com corpo `{"permissions":["ROLE_MANAGE_PROFILE","ROLE_SEARCH_HOUSES","ROLE_MATCH","ROLE_MANAGE_EXPENSES","ROLE_MANAGE_CHORES","ROLE_MANAGE_GROCERIES","ROLE_VIEW_DASHBOARD"]}`.
   10. `9.10 Usuário comum em rota admin → 403` — `GET /api/admin/users` bearer `{{token}}`.
-  11. `9.11 Logout` — `DELETE /oauth/token/revoke`, Basic client; teste `204`.
-  12. `9.12 Refresh após logout → 400` — igual ao 9.1; teste `error == "invalid_grant"`.
+  11. `9.11 Re-login do candidato` — password grant com o e-mail do candidato; salva `candidateToken` (o cookie jar volta a ter o refresh do candidato).
+  12. `9.12 Logout (candidato)` — `DELETE /oauth/token/revoke`, Basic client; teste `204`.
+  13. `9.13 Refresh após logout → 400` — igual ao 9.1; teste `error == "invalid_grant"`.
 
 Validar: `python -c "import json;json.load(open('NossoTeto.postman_collection.json',encoding='utf-8'))"` → sem erro. Rodar a collection inteira contra a API local (`JWT_SECRET`, `APP_CRYPTO_KEY`, `ADMIN_PASSWORD` definidos) no Postman Runner e registrar o resultado no PR.
 
