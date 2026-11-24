@@ -75,7 +75,7 @@ Removidos: `JwtTokenProvider`, `JwtAuthenticationFilter`, `SecurityConfig`, `Jwt
 - **Backfill:** todo usuário existente recebe todas as permissões exceto `ROLE_ADMIN_USERS`.
 
 ### 3.2. `V4__Widen_encrypted_profile_columns.sql`
-- `allergies` passa de `VARCHAR(255)` para `TEXT` (o texto cifrado `v1:` + base64(IV ‖ ciphertext ‖ tag) ultrapassa 255 caracteres).
+- `allergies` (era VARCHAR(255)) e `bio` (era TEXT) passam a `MEDIUMTEXT`: o texto cifrado `v1:` + base64(IV ‖ ciphertext ‖ tag) é ~4/3 do texto claro + 40 bytes e excederia VARCHAR(255) e o limite de 64 KB do TEXT no MySQL.
 
 ---
 
