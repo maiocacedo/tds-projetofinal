@@ -58,7 +58,11 @@ Os testes E2E focarão nos fluxos que não podem falhar:
 
 ## 4. Como rodar localmente
 
-Defina as variáveis obrigatórias (`JWT_SECRET` e `APP_CRYPTO_KEY`) antes de subir a API com `mvn spring-boot:run`:
+Copie `.env.example` para `.env` na raiz do projeto e preencha ao menos `JWT_SECRET` e `APP_CRYPTO_KEY` (o próprio arquivo traz o comando PowerShell para gerar cada valor). O `.env` é ignorado pelo Git e importado pela API via `spring.config.import=optional:file:.env[.properties]`; variáveis de ambiente do sistema, se definidas, têm prioridade. Depois suba a API com `mvn spring-boot:run` a partir da raiz do projeto.
+
+> ⚠️ `APP_CRYPTO_KEY` não pode mudar depois do primeiro uso: `allergies` e `bio` já cifradas ficariam ilegíveis.
+
+Variáveis disponíveis:
 
 | Variável | Obrigatória | Exemplo / padrão |
 |---|---|---|
