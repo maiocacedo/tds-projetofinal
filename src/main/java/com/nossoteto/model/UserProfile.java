@@ -1,6 +1,8 @@
 package com.nossoteto.model;
 
+import com.nossoteto.security.crypto.EncryptedStringConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -27,10 +29,12 @@ public class UserProfile {
     @Column(name = "profession")
     private String profession;
 
-    @Column(name = "bio", columnDefinition = "TEXT")
+    @Column(name = "bio", columnDefinition = "MEDIUMTEXT")
+    @Convert(converter = EncryptedStringConverter.class)
     private String bio;
 
-    @Column(name = "allergies")
+    @Column(name = "allergies", columnDefinition = "MEDIUMTEXT")
+    @Convert(converter = EncryptedStringConverter.class)
     private String allergies;
 
     @Column(name = "organization_level")

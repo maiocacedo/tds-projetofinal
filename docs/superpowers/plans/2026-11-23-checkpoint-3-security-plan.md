@@ -2580,6 +2580,8 @@ public class AdminController {
 
 `AdminBootstrap.java`:
 
+> **Atualizado após revisão (Gauntlet T5, rodada 1):** o código abaixo é a versão original do plano e tinha uma falha de escalonamento de privilégio (promovia conta pré-registrada com ADMIN_EMAIL). A implementação final recusa promover conta existente sem ROLE_ADMIN_USERS (log.warn) — ver `src/main/java/com/nossoteto/security/AdminBootstrap.java`.
+
 ```java
 package com.nossoteto.security;
 
