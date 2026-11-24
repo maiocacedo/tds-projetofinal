@@ -8,6 +8,8 @@ import com.nossoteto.model.Grocery;
 import com.nossoteto.model.House;
 import com.nossoteto.model.MatchRequest;
 import com.nossoteto.model.MatchVote;
+import com.nossoteto.model.Permission;
+import com.nossoteto.model.RefreshToken;
 import com.nossoteto.model.User;
 import com.nossoteto.model.UserProfile;
 import org.hibernate.boot.Metadata;
@@ -41,6 +43,8 @@ class MySqlSchemaCompatibilityTest {
                     .addAnnotatedClass(ExpenseSplitVote.class)
                     .addAnnotatedClass(Chore.class)
                     .addAnnotatedClass(Grocery.class)
+                    .addAnnotatedClass(Permission.class)
+                    .addAnnotatedClass(RefreshToken.class)
                     .buildMetadata();
 
             for (PersistentClass entityBinding : metadata.getEntityBindings()) {

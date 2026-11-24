@@ -6,9 +6,12 @@ import com.nossoteto.dto.RegisterRequest;
 import com.nossoteto.dto.RegisterResponse;
 import com.nossoteto.exception.BusinessRuleException;
 import com.nossoteto.exception.UnauthorizedException;
+import com.nossoteto.model.Permission;
 import com.nossoteto.model.User;
+import com.nossoteto.repository.PermissionRepository;
 import com.nossoteto.repository.UserRepository;
 import com.nossoteto.security.JwtTokenProvider;
+import com.nossoteto.security.Permissions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +21,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,13 +37,16 @@ class AuthServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private PermissionRepository permissionRepository;
+
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final JwtTokenProvider jwtTokenProvider = new JwtTokenProvider(SECRET, 7_200_000);
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(userRepository, passwordEncoder, jwtTokenProvider);
+        authService = new AuthService(userRepository, permissionRepository, passwordEncoder, jwtTokenProvider);
     }
 
     @Test
@@ -55,6 +63,20 @@ class AuthServiceTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
         assertTrue(passwordEncoder.matches("segredo", captor.getValue().getPasswordHash()));
+    }
+
+    @Test
+    void registerShouldGrantDefaultPermissions() {
+        Permission manageProfile = new Permission(1, Permissions.MANAGE_PROFILE, "x");
+        when(userRepository.findByEmail("novo@nossoteto.com")).thenReturn(Optional.empty());
+        when(permissionRepository.findByNameNot(Permissions.ADMIN_USERS)).thenReturn(List.of(manageProfile));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        authService.registerUser(new RegisterRequest("Novo", "novo@nossoteto.com", "senha123"));
+
+        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(saved.capture());
+        assertEquals(Set.of(manageProfile), saved.getValue().getPermissions());
     }
 
     @Test
