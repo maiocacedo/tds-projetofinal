@@ -6,6 +6,31 @@
 
 ---
 
+## Panorama geral do PR #5
+
+| Item | Commit | O que entrega |
+|---|---|---|
+| **T6 — CORS** | `4ff2309` | Libera o frontend React (`http://localhost:5173`) para chamar a API pelo navegador, **com cookies** (necessários para o refresh token). Origens em lista explícita, configuráveis por `CORS_ALLOWED_ORIGINS` |
+| **T7 — Criptografia** | `b21018f` | `allergies` e `bio` cifradas no banco com AES-256-GCM; `APP_CRYPTO_KEY` obrigatória; V4 → `MEDIUMTEXT` |
+| **T8 — Postman e docs** | `cebe312` | Collection com o fluxo OAuth e a pasta 9 (segurança, 13 requests); `api-routes.md` com contrato OAuth e matriz de permissões; `security-ci-strategy.md` atualizado |
+| **`.env`** | `cbd2154` | Segredos locais num `.env` ignorado pelo Git; `.env.example` versionado |
+| **README** | `da75727` | Projeto, decisões e como executar |
+| **Backlog da entrega final** | `2de8b0c` | `docs/entrega-final-ideias.md` (plano B de disponibilidade e lacunas conhecidas) |
+| **Notas de revisão** | `45a7076`, este arquivo | Parte 1 (PR #4) e parte 2 (PR #5) |
+
+**Evidências:** 274 testes verdes; app real contra **MySQL 8** com V1–V4 aplicadas; **Newman** rodando a collection inteira com 46/46 requisições.
+
+### CORS em uma frase
+O navegador, por padrão, **bloqueia** um site de ler respostas de outra origem (outro domínio, protocolo ou **porta**). O React em `localhost:5173` e a API em `localhost:8080` são origens diferentes. O **CORS** é a API dizendo ao navegador *"esta origem eu autorizo"*. A configuração do T6:
+- `allowedOrigins`: **lista explícita** (padrão `http://localhost:5173`); nunca `*`, que é proibido junto com credenciais;
+- `allowCredentials=true`: permite enviar o **cookie do refresh token**;
+- métodos `GET/POST/PUT/DELETE/OPTIONS`; headers `Authorization` e `Content-Type`; `maxAge` de 1h para o navegador guardar a resposta do preflight;
+- aplicado em **todas** as chains de segurança (OAuth, `/oauth/**` e Basic).
+
+O CORS **não é autenticação**: só controla quais **sites, dentro do navegador,** podem ler as respostas. Postman, curl e outros servidores nem consultam o CORS; o que protege a API continua sendo o token.
+
+---
+
 ## Criptografia de dados sensíveis (T7)
 
 **Por quê:** o RNF09 pede que dados pessoais críticos sejam encriptados no banco. `allergies` (dado de saúde) e `bio` são gravados cifrados; quem rouba uma cópia do banco não lê esses campos.
@@ -103,7 +128,7 @@ Assim não foi preciso uma migração de dados. Um teste prova a recifragem: gra
 
 ## Ainda não revisado nesta conversa
 
-- [ ] **CORS (T6):** `CommonSecurityConfig.corsConfigurationSource`, origens explícitas com credenciais
+- [x] **CORS (T6):** resumido no panorama acima
 - [ ] **Postman (T8):** pasta 9 (segurança) e o cuidado com o cookie jar
 - [ ] **Documentação (T8):** `api-routes.md` e `security-ci-strategy.md`
 - [ ] **`.env` / README** (já comentados na parte 1)
