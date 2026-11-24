@@ -24,6 +24,7 @@ Ideias, da mais simples para a mais completa:
 
 - [ ] **Documentação OpenAPI/Swagger:** o RNF04 pede e ainda não existe (`springdoc-openapi`).
 - [ ] **Testes E2E (RNF03):** Cypress ou Playwright com os golden paths de `docs/security-ci-strategy.md`, quando o frontend existir.
+- [ ] **Mapear as telas antes de codar o front:** nenhuma tela do Nosso Teto foi desenhada ainda. A "Fase 3: Mapeamento de Telas (UI)" do plano de documentação de 07/09 (`docs/ui-screens.md`: navegação, páginas, componentes) nunca foi feita e é o ponto de partida.
 - [ ] **Frontend React (SPA):** consumir `/oauth/token` (form + Basic do client), refresh por cookie (`credentials: 'include'`) e CORS já configurado para `http://localhost:5173`.
 - [ ] **Rate limiting / proteção contra força bruta** no `POST /oauth/token`.
 - [ ] **Normalização de e-mail** (minúsculas) no cadastro e no login: o MySQL compara sem diferenciar maiúsculas, mas o código não normaliza.
