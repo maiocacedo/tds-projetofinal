@@ -7,6 +7,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -25,16 +27,20 @@ public class TokenController {
 
     private final ClientAuthenticator clientAuthenticator;
     private final OAuthTokenService tokenService;
+    private final RefreshTokenCookieFactory cookieFactory;
 
-    public TokenController(ClientAuthenticator clientAuthenticator, OAuthTokenService tokenService) {
+    public TokenController(ClientAuthenticator clientAuthenticator, OAuthTokenService tokenService,
+                           RefreshTokenCookieFactory cookieFactory) {
         this.clientAuthenticator = clientAuthenticator;
         this.tokenService = tokenService;
+        this.cookieFactory = cookieFactory;
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public ResponseEntity<Map<String, Object>> token(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @RequestParam MultiValueMap<String, String> form,
+            @CookieValue(name = RefreshTokenCookieFactory.COOKIE_NAME, required = false) String refreshCookie,
             HttpServletRequest request) {
         SecurityProperties.Client client = clientAuthenticator.authenticate(authorization);
         if (request.getQueryString() != null && !request.getQueryString().isEmpty()) {
@@ -46,10 +52,30 @@ public class TokenController {
         String scope = singleParam(form, "scope");
         OAuthTokenService.TokenResult result = switch (grantType == null ? "" : grantType) {
             case "password" -> tokenService.passwordGrant(client, username, password, scope);
+            case "refresh_token" -> tokenService.refreshGrant(client, refreshCookie);
             case "" -> throw OAuthException.invalidRequest("grant_type is required");
             default -> throw OAuthException.unsupportedGrantType();
         };
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body(result));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, cookieFactory.create(result.refreshToken()).toString())
+                .body(body(result));
+    }
+
+    @DeleteMapping("/revoke")
+    public ResponseEntity<Void> revoke(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @CookieValue(name = RefreshTokenCookieFactory.COOKIE_NAME, required = false) String refreshCookie,
+            HttpServletRequest request) {
+        SecurityProperties.Client client = clientAuthenticator.authenticate(authorization);
+        if (request.getQueryString() != null && !request.getQueryString().isEmpty()) {
+            throw OAuthException.invalidRequest("Query parameters are not allowed");
+        }
+        tokenService.revoke(client, refreshCookie);
+        return ResponseEntity.noContent()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, cookieFactory.clear().toString())
+                .build();
     }
 
     private static String singleParam(MultiValueMap<String, String> form, String name) {

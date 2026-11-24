@@ -14,7 +14,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Stri
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("update RefreshToken r set r.usedAt = :now where r.id = :id and r.usedAt is null")
+    @Query("update RefreshToken r set r.usedAt = :now where r.id = :id and r.usedAt is null and r.revokedAt is null and r.expiresAt > :now")
     int markUsed(@Param("id") String id, @Param("now") LocalDateTime now);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)

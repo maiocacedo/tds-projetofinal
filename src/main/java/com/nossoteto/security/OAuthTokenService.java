@@ -19,13 +19,15 @@ public class OAuthTokenService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AccessTokenService accessTokenService;
+    private final RefreshTokenService refreshTokenService;
     private final String dummyHash;
 
     public OAuthTokenService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                             AccessTokenService accessTokenService) {
+                             AccessTokenService accessTokenService, RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.accessTokenService = accessTokenService;
+        this.refreshTokenService = refreshTokenService;
         this.dummyHash = passwordEncoder.encode("timing-equalizer");
     }
 
@@ -43,7 +45,21 @@ public class OAuthTokenService {
             throw OAuthException.invalidGrant("Invalid credentials");
         }
         String userId = user.get().getId();
-        return new TokenResult(accessTokenService.issue(userId, client.clientId(), scopes), userId, null);
+        String scope = String.join(" ", scopes);
+        String refresh = refreshTokenService.issue(userId, client.clientId(), scope, null);
+        return new TokenResult(accessTokenService.issue(userId, client.clientId(), scopes), userId, refresh);
+    }
+
+    @Transactional(noRollbackFor = OAuthException.class)
+    public TokenResult refreshGrant(SecurityProperties.Client client, String rawRefresh) {
+        RefreshTokenService.Rotation rotation = refreshTokenService.rotate(rawRefresh, client.clientId());
+        Set<String> scopes = new TreeSet<>(Arrays.asList(rotation.scope().trim().split("\\s+")));
+        return new TokenResult(accessTokenService.issue(rotation.userId(), client.clientId(), scopes),
+                rotation.userId(), rotation.refreshToken());
+    }
+
+    public void revoke(SecurityProperties.Client client, String rawRefresh) {
+        refreshTokenService.revoke(rawRefresh, client.clientId());
     }
 
     static Set<String> resolveScopes(SecurityProperties.Client client, String requested) {
@@ -57,5 +73,10 @@ public class OAuthTokenService {
         return scopes;
     }
 
-    public record TokenResult(AccessTokenService.IssuedAccessToken accessToken, String userId, String refreshToken) {}
+    public record TokenResult(AccessTokenService.IssuedAccessToken accessToken, String userId, String refreshToken) {
+        @Override
+        public String toString() {
+            return "TokenResult[userId=" + userId + ", accessToken=******, refreshToken=******]";
+        }
+    }
 }
