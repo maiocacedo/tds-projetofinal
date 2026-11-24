@@ -334,19 +334,15 @@ class NossoTetoIntegrationTest {
     }
 
     private String loginUser(String email, String password) throws Exception {
-        String payload = """
-                {
-                  "email": "%s",
-                  "senha": "%s"
-                }
-                """.formatted(email, password);
-
-        MvcResult result = mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+        MvcResult result = mockMvc.perform(post("/oauth/token")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+                                .httpBasic("nosso-teto-web", "web-test-secret"))
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("grant_type", "password")
+                        .param("username", email)
+                        .param("password", password))
                 .andExpect(status().isOk())
                 .andReturn();
-
-        return objectMapper.readTree(result.getResponse().getContentAsString()).get("token").asText();
+        return objectMapper.readTree(result.getResponse().getContentAsString()).get("access_token").asText();
     }
 }

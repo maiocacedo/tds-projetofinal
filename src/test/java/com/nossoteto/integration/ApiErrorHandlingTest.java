@@ -9,9 +9,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,10 +43,10 @@ class ApiErrorHandlingTest {
                 "{\"nome\":\"Erro\",\"email\":\"" + email + "\",\"senha\":\"senha123\"}");
         assertEquals(201, register.statusCode());
 
-        HttpResponse<String> login = send("POST", "/api/auth/login", null,
-                "{\"email\":\"" + email + "\",\"senha\":\"senha123\"}");
+        HttpResponse<String> login = sendTokenForm(
+                "grant_type=password&username=" + URLEncoder.encode(email, StandardCharsets.UTF_8) + "&password=senha123");
         assertEquals(200, login.statusCode());
-        token = objectMapper.readTree(login.body()).get("token").asText();
+        token = objectMapper.readTree(login.body()).get("access_token").asText();
     }
 
     @Test
@@ -62,15 +65,17 @@ class ApiErrorHandlingTest {
         HttpResponse<String> response = send("GET", "/api/users/me", null, null);
 
         assertEquals(401, response.statusCode());
+        assertEquals("Bearer", response.headers().firstValue("WWW-Authenticate").orElse(null));
         assertEquals("Authentication required", objectMapper.readTree(response.body()).get("error").asText());
     }
 
     @Test
-    void loginWithWrongPasswordShouldReturn401() throws Exception {
-        HttpResponse<String> response = send("POST", "/api/auth/login", null,
-                "{\"email\":\"" + email + "\",\"senha\":\"errada\"}");
+    void tokenWithWrongPasswordShouldReturn400InvalidGrant() throws Exception {
+        HttpResponse<String> response = sendTokenForm(
+                "grant_type=password&username=" + URLEncoder.encode(email, StandardCharsets.UTF_8) + "&password=errada");
 
-        assertEquals(401, response.statusCode());
+        assertEquals(400, response.statusCode());
+        assertEquals("invalid_grant", objectMapper.readTree(response.body()).get("error").asText());
     }
 
     @Test
@@ -102,6 +107,17 @@ class ApiErrorHandlingTest {
         HttpResponse<String> response = send("DELETE", "/api/users/me", token, null);
 
         assertEquals(405, response.statusCode());
+    }
+
+    private HttpResponse<String> sendTokenForm(String formBody) throws Exception {
+        String basic = Base64.getEncoder().encodeToString(
+                "nosso-teto-web:web-test-secret".getBytes(StandardCharsets.UTF_8));
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/oauth/token"))
+                .header("Authorization", "Basic " + basic)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(formBody))
+                .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> send(String method, String path, String bearer, String json) throws Exception {

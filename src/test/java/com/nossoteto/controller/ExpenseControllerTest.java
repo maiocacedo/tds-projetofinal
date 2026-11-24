@@ -7,8 +7,6 @@ import com.nossoteto.dto.ProposeSplitRequest;
 import com.nossoteto.dto.VoteRequestDto;
 import com.nossoteto.exception.ForbiddenOperationException;
 import com.nossoteto.model.enums.SplitType;
-import com.nossoteto.security.JwtAuthenticationFilter;
-import com.nossoteto.security.JwtTokenProvider;
 import com.nossoteto.service.ExpenseService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -47,12 +45,6 @@ class ExpenseControllerTest {
 
     @MockBean
     private ExpenseService expenseService;
-
-    @MockBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
-
-    @MockBean
-    private JwtTokenProvider jwtTokenProvider;
 
     private UsernamePasswordAuthenticationToken auth(String userId) {
         return new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());

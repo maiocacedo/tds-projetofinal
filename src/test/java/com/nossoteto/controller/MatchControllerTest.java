@@ -6,8 +6,6 @@ import com.nossoteto.dto.VoteMatchResponse;
 import com.nossoteto.dto.VoteRequestDto;
 import com.nossoteto.exception.ForbiddenOperationException;
 import com.nossoteto.model.enums.MatchStatus;
-import com.nossoteto.security.JwtAuthenticationFilter;
-import com.nossoteto.security.JwtTokenProvider;
 import com.nossoteto.service.MatchService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -42,12 +40,6 @@ class MatchControllerTest {
 
     @MockBean
     private MatchService matchService;
-
-    @MockBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
-
-    @MockBean
-    private JwtTokenProvider jwtTokenProvider;
 
     private UsernamePasswordAuthenticationToken auth(String userId) {
         return new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());

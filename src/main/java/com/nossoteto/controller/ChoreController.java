@@ -62,6 +62,6 @@ public class ChoreController {
     }
 
     private String extractUserId(Authentication authentication) {
-        return authentication != null ? (String) authentication.getPrincipal() : null;
+        return authentication != null ? authentication.getName() : null;
     }
 }
