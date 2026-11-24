@@ -8,6 +8,7 @@ import com.nossoteto.service.ExpenseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,6 +31,7 @@ public class ExpenseController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_EXPENSES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<ExpenseResponse> createExpense(
             Authentication authentication,
             @PathVariable String houseId,
@@ -40,6 +42,7 @@ public class ExpenseController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_EXPENSES') and hasAuthority('SCOPE_read')")
     public ResponseEntity<List<ExpenseResponse>> listExpenses(
             Authentication authentication,
             @PathVariable String houseId) {
@@ -48,6 +51,7 @@ public class ExpenseController {
     }
 
     @GetMapping("/{expenseId}/attachment")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_EXPENSES') and hasAuthority('SCOPE_read')")
     public ResponseEntity<byte[]> getAttachment(
             Authentication authentication,
             @PathVariable String houseId,
@@ -60,6 +64,7 @@ public class ExpenseController {
     }
 
     @PostMapping("/{expenseId}/propose-split")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_EXPENSES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<ExpenseResponse> proposeCustomSplit(
             Authentication authentication,
             @PathVariable String houseId,
@@ -70,6 +75,7 @@ public class ExpenseController {
     }
 
     @PostMapping("/{expenseId}/vote-split")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_EXPENSES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<ExpenseResponse> voteOnCustomSplit(
             Authentication authentication,
             @PathVariable String houseId,
@@ -80,6 +86,7 @@ public class ExpenseController {
     }
 
     @PutMapping("/{expenseId}/pay")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_EXPENSES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<ExpenseResponse> markSplitAsPaid(
             Authentication authentication,
             @PathVariable String houseId,
@@ -89,6 +96,6 @@ public class ExpenseController {
     }
 
     private String extractUserId(Authentication authentication) {
-        return authentication != null ? (String) authentication.getPrincipal() : null;
+        return authentication != null ? authentication.getName() : null;
     }
 }

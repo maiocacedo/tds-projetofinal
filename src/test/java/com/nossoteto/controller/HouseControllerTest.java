@@ -5,8 +5,6 @@ import com.nossoteto.dto.HouseMemberSummaryDto;
 import com.nossoteto.dto.HouseResponse;
 import com.nossoteto.exception.ForbiddenOperationException;
 import com.nossoteto.model.enums.VotingRule;
-import com.nossoteto.security.JwtAuthenticationFilter;
-import com.nossoteto.security.JwtTokenProvider;
 import com.nossoteto.service.HouseMembershipService;
 import com.nossoteto.service.HouseService;
 import org.junit.jupiter.api.Test;
@@ -48,12 +46,6 @@ class HouseControllerTest {
 
     @MockBean
     private HouseMembershipService houseMembershipService;
-
-    @MockBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
-
-    @MockBean
-    private JwtTokenProvider jwtTokenProvider;
 
     private UsernamePasswordAuthenticationToken auth(String userId) {
         return new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());

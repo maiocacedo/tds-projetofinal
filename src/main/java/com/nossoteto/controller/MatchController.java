@@ -7,6 +7,7 @@ import com.nossoteto.dto.VoteRequestDto;
 import com.nossoteto.service.MatchService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,7 @@ public class MatchController {
     }
 
     @PostMapping("/api/matches/requests")
+    @PreAuthorize("hasAuthority('ROLE_MATCH') and hasAuthority('SCOPE_write')")
     public ResponseEntity<MatchRequestResponse> createMatchRequest(
             Authentication authentication,
             @RequestBody CreateMatchRequestDto dto) {
@@ -36,6 +38,7 @@ public class MatchController {
     }
 
     @GetMapping("/api/houses/{id}/matches")
+    @PreAuthorize("hasAuthority('ROLE_MATCH') and hasAuthority('SCOPE_read')")
     public ResponseEntity<List<MatchRequestResponse>> listHouseMatchRequests(
             Authentication authentication,
             @PathVariable String id) {
@@ -44,6 +47,7 @@ public class MatchController {
     }
 
     @PostMapping("/api/matches/requests/{requestId}/vote")
+    @PreAuthorize("hasAuthority('ROLE_MATCH') and hasAuthority('SCOPE_write')")
     public ResponseEntity<VoteMatchResponse> voteOnMatchRequest(
             Authentication authentication,
             @PathVariable String requestId,
@@ -53,6 +57,7 @@ public class MatchController {
     }
 
     @PostMapping("/api/matches/requests/cancel-others")
+    @PreAuthorize("hasAuthority('ROLE_MATCH') and hasAuthority('SCOPE_write')")
     public ResponseEntity<Map<String, Object>> cancelOtherPendingRequests(
             Authentication authentication) {
         String userId = extractUserId(authentication);
@@ -60,6 +65,6 @@ public class MatchController {
     }
 
     private String extractUserId(Authentication authentication) {
-        return authentication != null ? (String) authentication.getPrincipal() : null;
+        return authentication != null ? authentication.getName() : null;
     }
 }

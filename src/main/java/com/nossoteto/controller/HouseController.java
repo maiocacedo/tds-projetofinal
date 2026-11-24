@@ -6,6 +6,7 @@ import com.nossoteto.service.HouseMembershipService;
 import com.nossoteto.service.HouseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +34,7 @@ public class HouseController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_HOUSE') and hasAuthority('SCOPE_write')")
     public ResponseEntity<HouseResponse> createHouse(
             Authentication authentication,
             @RequestBody CreateHouseRequest request) {
@@ -42,6 +44,7 @@ public class HouseController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_SEARCH_HOUSES') and hasAuthority('SCOPE_read')")
     public ResponseEntity<List<HouseResponse>> listOpenHouses(
             Authentication authentication,
             @RequestParam(required = false) BigDecimal maxRent,
@@ -64,6 +67,7 @@ public class HouseController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_SEARCH_HOUSES') and hasAuthority('SCOPE_read')")
     public ResponseEntity<HouseResponse> getHouseDetails(
             Authentication authentication,
             @PathVariable String id) {
@@ -72,6 +76,7 @@ public class HouseController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_HOUSE') and hasAuthority('SCOPE_write')")
     public ResponseEntity<HouseResponse> updateHouse(
             Authentication authentication,
             @PathVariable String id,
@@ -81,6 +86,7 @@ public class HouseController {
     }
 
     @PostMapping("/{id}/leave")
+    @PreAuthorize("hasAuthority('SCOPE_write')")
     public ResponseEntity<Void> leaveHouse(
             Authentication authentication,
             @PathVariable String id) {
@@ -90,6 +96,7 @@ public class HouseController {
     }
 
     @DeleteMapping("/{id}/members/{memberId}")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_HOUSE') and hasAuthority('SCOPE_write')")
     public ResponseEntity<Void> removeMember(
             Authentication authentication,
             @PathVariable String id,
@@ -100,6 +107,6 @@ public class HouseController {
     }
 
     private String extractUserId(Authentication authentication) {
-        return authentication != null ? (String) authentication.getPrincipal() : null;
+        return authentication != null ? authentication.getName() : null;
     }
 }

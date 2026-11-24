@@ -5,6 +5,7 @@ import com.nossoteto.dto.GroceryResponse;
 import com.nossoteto.service.GroceryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,7 @@ public class GroceryController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<GroceryResponse> createGrocery(
             Authentication authentication,
             @PathVariable String houseId,
@@ -37,6 +39,7 @@ public class GroceryController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_read')")
     public ResponseEntity<List<GroceryResponse>> listGroceries(
             Authentication authentication,
             @PathVariable String houseId) {
@@ -45,6 +48,7 @@ public class GroceryController {
     }
 
     @PutMapping("/{itemId}/assign")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<GroceryResponse> assignGrocery(
             Authentication authentication,
             @PathVariable String houseId,
@@ -54,6 +58,7 @@ public class GroceryController {
     }
 
     @PutMapping("/{itemId}/purchase")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<GroceryResponse> markAsPurchased(
             Authentication authentication,
             @PathVariable String houseId,
@@ -63,6 +68,6 @@ public class GroceryController {
     }
 
     private String extractUserId(Authentication authentication) {
-        return authentication != null ? (String) authentication.getPrincipal() : null;
+        return authentication != null ? authentication.getName() : null;
     }
 }

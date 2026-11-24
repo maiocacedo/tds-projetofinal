@@ -5,6 +5,7 @@ import com.nossoteto.dto.CreateChoreRequest;
 import com.nossoteto.service.ChoreService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,7 @@ public class ChoreController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_CHORES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<ChoreResponse> createChore(
             Authentication authentication,
             @PathVariable String houseId,
@@ -37,6 +39,7 @@ public class ChoreController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_CHORES') and hasAuthority('SCOPE_read')")
     public ResponseEntity<List<ChoreResponse>> listChores(
             Authentication authentication,
             @PathVariable String houseId) {
@@ -45,6 +48,7 @@ public class ChoreController {
     }
 
     @PutMapping("/{choreId}/complete")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_CHORES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<ChoreResponse> completeChore(
             Authentication authentication,
             @PathVariable String houseId,
@@ -54,6 +58,7 @@ public class ChoreController {
     }
 
     @PostMapping("/rotate")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_CHORES') and hasAuthority('SCOPE_write')")
     public ResponseEntity<List<ChoreResponse>> rotateHouseChores(
             Authentication authentication,
             @PathVariable String houseId) {
@@ -62,6 +67,6 @@ public class ChoreController {
     }
 
     private String extractUserId(Authentication authentication) {
-        return authentication != null ? (String) authentication.getPrincipal() : null;
+        return authentication != null ? authentication.getName() : null;
     }
 }

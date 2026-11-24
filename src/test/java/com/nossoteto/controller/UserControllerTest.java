@@ -3,8 +3,6 @@ package com.nossoteto.controller;
 import com.nossoteto.dto.UserMeResponse;
 import com.nossoteto.dto.UserProfileDto;
 import com.nossoteto.exception.BusinessRuleException;
-import com.nossoteto.security.JwtAuthenticationFilter;
-import com.nossoteto.security.JwtTokenProvider;
 import com.nossoteto.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -38,12 +36,6 @@ class UserControllerTest {
 
     @MockBean
     private UserService userService;
-
-    @MockBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
-
-    @MockBean
-    private JwtTokenProvider jwtTokenProvider;
 
     private UsernamePasswordAuthenticationToken auth(String userId) {
         return new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());

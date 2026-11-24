@@ -1,34 +1,37 @@
 package com.nossoteto.service;
 
-import com.nossoteto.dto.AuthResponse;
-import com.nossoteto.dto.LoginRequest;
 import com.nossoteto.dto.RegisterRequest;
 import com.nossoteto.dto.RegisterResponse;
 import com.nossoteto.exception.BusinessRuleException;
-import com.nossoteto.exception.UnauthorizedException;
 import com.nossoteto.model.User;
+import com.nossoteto.repository.PermissionRepository;
 import com.nossoteto.repository.UserRepository;
-import com.nossoteto.security.JwtTokenProvider;
+import com.nossoteto.security.Permissions;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.HashSet;
 import java.util.UUID;
 
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PermissionRepository permissionRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider) {
+    public AuthService(
+            UserRepository userRepository,
+            PermissionRepository permissionRepository,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.permissionRepository = permissionRepository;
         this.passwordEncoder = passwordEncoder;
-        this.jwtTokenProvider = jwtTokenProvider;
     }
 
+    @Transactional
     public RegisterResponse registerUser(RegisterRequest request) {
         if (request.getEmail() == null || request.getEmail().isBlank()) {
             throw new BusinessRuleException("Email is required");
@@ -45,24 +48,10 @@ public class AuthService {
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setPermissions(new HashSet<>(permissionRepository.findByNameNot(Permissions.ADMIN_USERS)));
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
         return RegisterResponse.fromEntity(userRepository.save(user));
-    }
-
-    public AuthResponse loginUser(LoginRequest request) {
-        Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
-        if (userOptional.isEmpty() || request.getPassword() == null) {
-            throw new UnauthorizedException("Invalid credentials");
-        }
-
-        User user = userOptional.get();
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new UnauthorizedException("Invalid credentials");
-        }
-
-        String token = jwtTokenProvider.generateToken(user.getId());
-        return new AuthResponse(token, user.getId(), (int) jwtTokenProvider.getExpirationSeconds());
     }
 }
