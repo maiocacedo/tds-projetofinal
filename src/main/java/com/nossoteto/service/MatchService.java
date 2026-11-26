@@ -41,6 +41,7 @@ public class MatchService {
     private final HouseAccessValidator houseAccessValidator;
     private final CompatibilityCalculator compatibilityCalculator;
     private final VotingEvaluator votingEvaluator;
+    private final ResidenceHistoryService residenceHistoryService;
 
     public MatchService(MatchRequestRepository matchRequestRepository,
                         MatchVoteRepository matchVoteRepository,
@@ -49,7 +50,8 @@ public class MatchService {
                         UserProfileRepository userProfileRepository,
                         HouseAccessValidator houseAccessValidator,
                         CompatibilityCalculator compatibilityCalculator,
-                        VotingEvaluator votingEvaluator) {
+                        VotingEvaluator votingEvaluator,
+                        ResidenceHistoryService residenceHistoryService) {
         this.matchRequestRepository = matchRequestRepository;
         this.matchVoteRepository = matchVoteRepository;
         this.houseRepository = houseRepository;
@@ -58,6 +60,7 @@ public class MatchService {
         this.houseAccessValidator = houseAccessValidator;
         this.compatibilityCalculator = compatibilityCalculator;
         this.votingEvaluator = votingEvaluator;
+        this.residenceHistoryService = residenceHistoryService;
     }
 
     @Transactional
@@ -176,6 +179,7 @@ public class MatchService {
             candidate.setHouseId(house.getId());
             candidate.setIsHouseAdmin(false);
             userRepository.save(candidate);
+            residenceHistoryService.recordEntry(candidate.getId(), house.getId());
 
             otherPendingIds = matchRequestRepository.findByUserIdAndStatus(candidate.getId(), MatchStatus.PENDING)
                     .stream()

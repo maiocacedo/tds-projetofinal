@@ -101,21 +101,82 @@ class CompatibilityCalculatorTest {
         assertEquals(70, calculator.calculateScore(profile, house));
     }
 
-    @Test
-    void calculateScoreShouldGiveFullPointsForNullOptionalAttributes() {
+    private UserProfile completeProfile() {
         UserProfile profile = new UserProfile();
-        profile.setBudget(null);
-        profile.setHasPets(null);
-        profile.setIsSmoker(null);
-        profile.setOrganizationLevel(null);
-        profile.setVisitorTolerance(null);
+        profile.setBudget(new BigDecimal("1500.00"));
+        profile.setHasPets(false);
+        profile.setIsSmoker(false);
+        profile.setOrganizationLevel(3);
+        profile.setVisitorTolerance(3);
+        return profile;
+    }
+
+    @Test
+    void isProfileCompleteShouldReturnTrueOnlyWhenAllFiveMatchFieldsArePresent() {
+        assertFalse(CompatibilityCalculator.isProfileComplete(null));
+        assertTrue(CompatibilityCalculator.isProfileComplete(completeProfile()));
+
+        UserProfile missingBudget = completeProfile();
+        missingBudget.setBudget(null);
+        assertFalse(CompatibilityCalculator.isProfileComplete(missingBudget));
+
+        UserProfile missingPets = completeProfile();
+        missingPets.setHasPets(null);
+        assertFalse(CompatibilityCalculator.isProfileComplete(missingPets));
+
+        UserProfile missingSmoker = completeProfile();
+        missingSmoker.setIsSmoker(null);
+        assertFalse(CompatibilityCalculator.isProfileComplete(missingSmoker));
+
+        UserProfile missingOrg = completeProfile();
+        missingOrg.setOrganizationLevel(null);
+        assertFalse(CompatibilityCalculator.isProfileComplete(missingOrg));
+
+        UserProfile missingVisitors = completeProfile();
+        missingVisitors.setVisitorTolerance(null);
+        assertFalse(CompatibilityCalculator.isProfileComplete(missingVisitors));
+    }
+
+    @Test
+    void calculateScoreShouldReturnNullWhenAnyRequiredProfileFieldIsMissing() {
+        House house = new House();
+        house.setRentAmount(new BigDecimal("1200.00"));
+        house.setAllowsPets(true);
+        house.setAllowsSmokers(true);
+        house.setExpectedOrganizationLevel(3);
+        house.setVisitorTolerance(3);
+
+        UserProfile missingBudget = completeProfile();
+        missingBudget.setBudget(null);
+        assertNull(calculator.calculateScore(missingBudget, house));
+
+        UserProfile missingPets = completeProfile();
+        missingPets.setHasPets(null);
+        assertNull(calculator.calculateScore(missingPets, house));
+
+        UserProfile missingSmoker = completeProfile();
+        missingSmoker.setIsSmoker(null);
+        assertNull(calculator.calculateScore(missingSmoker, house));
+
+        UserProfile missingOrg = completeProfile();
+        missingOrg.setOrganizationLevel(null);
+        assertNull(calculator.calculateScore(missingOrg, house));
+
+        UserProfile missingVisitors = completeProfile();
+        missingVisitors.setVisitorTolerance(null);
+        assertNull(calculator.calculateScore(missingVisitors, house));
+    }
+
+    @Test
+    void calculateScoreShouldGiveFullPointsWhenHouseOptionalAttributesAreNullAndProfileIsComplete() {
+        UserProfile profile = completeProfile();
 
         House house = new House();
         house.setRentAmount(null);
         house.setAllowsPets(false);
         house.setAllowsSmokers(false);
-        house.setExpectedOrganizationLevel(5);
-        house.setVisitorTolerance(5);
+        house.setExpectedOrganizationLevel(null);
+        house.setVisitorTolerance(null);
 
         assertEquals(100, calculator.calculateScore(profile, house));
     }

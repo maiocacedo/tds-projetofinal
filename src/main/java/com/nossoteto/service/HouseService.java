@@ -28,17 +28,20 @@ public class HouseService {
     private final UserProfileRepository userProfileRepository;
     private final HouseAccessValidator houseAccessValidator;
     private final CompatibilityCalculator compatibilityCalculator;
+    private final ResidenceHistoryService residenceHistoryService;
 
     public HouseService(HouseRepository houseRepository,
                         UserRepository userRepository,
                         UserProfileRepository userProfileRepository,
                         HouseAccessValidator houseAccessValidator,
-                        CompatibilityCalculator compatibilityCalculator) {
+                        CompatibilityCalculator compatibilityCalculator,
+                        ResidenceHistoryService residenceHistoryService) {
         this.houseRepository = houseRepository;
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
         this.houseAccessValidator = houseAccessValidator;
         this.compatibilityCalculator = compatibilityCalculator;
+        this.residenceHistoryService = residenceHistoryService;
     }
 
     @Transactional
@@ -75,6 +78,7 @@ public class HouseService {
         user.setHouseId(savedHouse.getId());
         user.setIsHouseAdmin(true);
         userRepository.save(user);
+        residenceHistoryService.recordEntry(userId, savedHouse.getId());
 
         List<HouseMemberSummaryDto> members = loadMembers(savedHouse.getId(), true);
         return HouseResponse.fromEntity(savedHouse, null, members);

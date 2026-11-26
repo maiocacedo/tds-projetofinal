@@ -48,6 +48,9 @@ class HouseMembershipServiceTest {
     @Mock
     private MatchRequestRepository matchRequestRepository;
 
+    @Mock
+    private ResidenceHistoryService residenceHistoryService;
+
     private HouseMembershipService membershipService;
 
     @BeforeEach
@@ -58,7 +61,8 @@ class HouseMembershipServiceTest {
                 choreRepository,
                 groceryRepository,
                 matchRequestRepository,
-                new HouseAccessValidator(userRepository)
+                new HouseAccessValidator(userRepository),
+                residenceHistoryService
         );
     }
 
@@ -110,6 +114,7 @@ class HouseMembershipServiceTest {
         assertNull(adminItem.getAssigneeId());
         verify(userRepository).save(admin);
         verify(userRepository).save(u2);
+        verify(residenceHistoryService).recordExit("user-1", "house-1");
     }
 
     @Test
@@ -137,6 +142,7 @@ class HouseMembershipServiceTest {
         assertFalse(house.getIsAcceptingMatches());
         assertEquals(MatchStatus.CANCELLED, pending.getStatus());
         verify(houseRepository).save(house);
+        verify(residenceHistoryService).recordExit("user-1", "house-1");
         verifyNoInteractions(choreRepository, groceryRepository);
     }
 
@@ -150,6 +156,7 @@ class HouseMembershipServiceTest {
         assertThrows(ForbiddenOperationException.class,
                 () -> membershipService.leaveHouse("outsider", "house-1"));
         verify(userRepository, never()).save(any());
+        verifyNoInteractions(residenceHistoryService);
     }
 
     @Test
@@ -167,6 +174,7 @@ class HouseMembershipServiceTest {
         assertTrue(admin.getIsHouseAdmin());
         verify(userRepository).save(u2);
         verify(userRepository, never()).save(admin);
+        verify(residenceHistoryService).recordExit("user-2", "house-1");
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.nossoteto.dto;
 
+import java.util.List;
+
 public class UserMeResponse {
 
     private String id;
@@ -9,11 +11,17 @@ public class UserMeResponse {
     private Boolean isHouseAdmin;
     private String houseName;
     private UserProfileDto profile;
+    private boolean profileComplete;
+    private List<String> permissions;
+    private PointsSummaryDto points;
+    private Integer residenceMonths;
 
     public UserMeResponse() {}
 
     public UserMeResponse(String id, String name, String email, String houseId,
-                          Boolean isHouseAdmin, String houseName, UserProfileDto profile) {
+                          Boolean isHouseAdmin, String houseName, UserProfileDto profile,
+                          boolean profileComplete, List<String> permissions,
+                          PointsSummaryDto points, Integer residenceMonths) {
         this.id = id;
         this.name = name;
         this.email = email;
@@ -21,6 +29,10 @@ public class UserMeResponse {
         this.isHouseAdmin = isHouseAdmin;
         this.houseName = houseName;
         this.profile = profile;
+        this.profileComplete = profileComplete;
+        this.permissions = permissions;
+        this.points = points;
+        this.residenceMonths = residenceMonths;
     }
 
     public String getId() { return id; }
@@ -43,4 +55,16 @@ public class UserMeResponse {
 
     public UserProfileDto getProfile() { return profile; }
     public void setProfile(UserProfileDto profile) { this.profile = profile; }
+
+    public boolean isProfileComplete() { return profileComplete; }
+    public void setProfileComplete(boolean profileComplete) { this.profileComplete = profileComplete; }
+
+    public List<String> getPermissions() { return permissions; }
+    public void setPermissions(List<String> permissions) { this.permissions = permissions; }
+
+    public PointsSummaryDto getPoints() { return points; }
+    public void setPoints(PointsSummaryDto points) { this.points = points; }
+
+    public Integer getResidenceMonths() { return residenceMonths; }
+    public void setResidenceMonths(Integer residenceMonths) { this.residenceMonths = residenceMonths; }
 }

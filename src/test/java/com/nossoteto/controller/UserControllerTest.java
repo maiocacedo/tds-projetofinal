@@ -1,6 +1,7 @@
 package com.nossoteto.controller;
 
 import com.nossoteto.dto.PointHistoryItemDto;
+import com.nossoteto.dto.PointsSummaryDto;
 import com.nossoteto.dto.UserMeResponse;
 import com.nossoteto.dto.UserPointsResponse;
 import com.nossoteto.dto.UserProfileDto;
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -56,10 +58,23 @@ class UserControllerTest {
         UserProfileDto profileDto = new UserProfileDto();
         profileDto.setBudget(new BigDecimal("1400.00"));
         profileDto.setHasPets(true);
+        profileDto.setIsSmoker(false);
         profileDto.setOrganizationLevel(4);
+        profileDto.setVisitorTolerance(3);
 
         UserMeResponse response = new UserMeResponse(
-                "user-1", "Alice", "alice@test.com", "house-1", true, "Solar", profileDto);
+                "user-1",
+                "Alice",
+                "alice@test.com",
+                "house-1",
+                true,
+                "Solar",
+                profileDto,
+                true,
+                List.of("ROLE_MANAGE_HOUSE", "ROLE_MANAGE_PROFILE"),
+                new PointsSummaryDto(45, 20),
+                3
+        );
 
         when(userService.getCurrentUser("user-1")).thenReturn(response);
 
@@ -67,11 +82,46 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value("user-1"))
                 .andExpect(jsonPath("$.name").value("Alice"))
+                .andExpect(jsonPath("$.email").value("alice@test.com"))
                 .andExpect(jsonPath("$.houseId").value("house-1"))
+                .andExpect(jsonPath("$.isHouseAdmin").value(true))
                 .andExpect(jsonPath("$.houseName").value("Solar"))
+                .andExpect(jsonPath("$.profileComplete").value(true))
+                .andExpect(jsonPath("$.permissions[0]").value("ROLE_MANAGE_HOUSE"))
+                .andExpect(jsonPath("$.permissions[1]").value("ROLE_MANAGE_PROFILE"))
+                .andExpect(jsonPath("$.points.total").value(45))
+                .andExpect(jsonPath("$.points.thisMonth").value(20))
+                .andExpect(jsonPath("$.residenceMonths").value(3))
                 .andExpect(jsonPath("$.profile.budget").value(1400.00))
                 .andExpect(jsonPath("$.profile.hasPets").value(true))
                 .andExpect(jsonPath("$.profile.organizationLevel").value(4));
+    }
+
+    @Test
+    void getMeShouldSerializeNullResidenceMonthsAndIncompleteProfile() throws Exception {
+        UserMeResponse response = new UserMeResponse(
+                "user-2",
+                "Bob",
+                "bob@test.com",
+                null,
+                false,
+                null,
+                null,
+                false,
+                List.of("ROLE_MANAGE_PROFILE"),
+                new PointsSummaryDto(0, 0),
+                null
+        );
+
+        when(userService.getCurrentUser("user-2")).thenReturn(response);
+
+        mockMvc.perform(get("/api/users/me").principal(auth("user-2")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isHouseAdmin").value(false))
+                .andExpect(jsonPath("$.profileComplete").value(false))
+                .andExpect(jsonPath("$.points.total").value(0))
+                .andExpect(jsonPath("$.points.thisMonth").value(0))
+                .andExpect(jsonPath("$.residenceMonths").value(nullValue()));
     }
 
     @Test

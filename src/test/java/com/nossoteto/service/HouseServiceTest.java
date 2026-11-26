@@ -45,6 +45,9 @@ class HouseServiceTest {
     @Mock
     private CompatibilityCalculator compatibilityCalculator;
 
+    @Mock
+    private ResidenceHistoryService residenceHistoryService;
+
     private HouseService houseService;
 
     @BeforeEach
@@ -54,7 +57,8 @@ class HouseServiceTest {
                 userRepository,
                 userProfileRepository,
                 houseAccessValidator,
-                compatibilityCalculator
+                compatibilityCalculator,
+                residenceHistoryService
         );
     }
 
@@ -98,6 +102,7 @@ class HouseServiceTest {
         verify(userRepository).save(userCaptor.capture());
         assertEquals(response.getId(), userCaptor.getValue().getHouseId());
         assertTrue(userCaptor.getValue().getIsHouseAdmin());
+        verify(residenceHistoryService).recordEntry("user-1", response.getId());
     }
 
     @Test
@@ -111,6 +116,7 @@ class HouseServiceTest {
 
         assertThrows(BusinessRuleException.class, () -> houseService.createHouse("user-1", request));
         verifyNoInteractions(houseRepository);
+        verifyNoInteractions(residenceHistoryService);
     }
 
     @Test

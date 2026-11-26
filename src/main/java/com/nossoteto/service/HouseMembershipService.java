@@ -30,19 +30,22 @@ public class HouseMembershipService {
     private final GroceryRepository groceryRepository;
     private final MatchRequestRepository matchRequestRepository;
     private final HouseAccessValidator houseAccessValidator;
+    private final ResidenceHistoryService residenceHistoryService;
 
     public HouseMembershipService(UserRepository userRepository,
                                   HouseRepository houseRepository,
                                   ChoreRepository choreRepository,
                                   GroceryRepository groceryRepository,
                                   MatchRequestRepository matchRequestRepository,
-                                  HouseAccessValidator houseAccessValidator) {
+                                  HouseAccessValidator houseAccessValidator,
+                                  ResidenceHistoryService residenceHistoryService) {
         this.userRepository = userRepository;
         this.houseRepository = houseRepository;
         this.choreRepository = choreRepository;
         this.groceryRepository = groceryRepository;
         this.matchRequestRepository = matchRequestRepository;
         this.houseAccessValidator = houseAccessValidator;
+        this.residenceHistoryService = residenceHistoryService;
     }
 
     @Transactional
@@ -68,6 +71,7 @@ public class HouseMembershipService {
         member.setHouseId(null);
         member.setIsHouseAdmin(false);
         userRepository.save(member);
+        residenceHistoryService.recordExit(member.getId(), houseId);
 
         List<User> remaining = userRepository.findByHouseIdOrderByIdAsc(houseId).stream()
                 .filter(u -> !u.getId().equals(member.getId()))

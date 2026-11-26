@@ -55,6 +55,9 @@ class MatchServiceTest {
     @Mock
     private UserProfileRepository userProfileRepository;
 
+    @Mock
+    private ResidenceHistoryService residenceHistoryService;
+
     private HouseAccessValidator houseAccessValidator;
     private CompatibilityCalculator compatibilityCalculator;
     private VotingEvaluator votingEvaluator;
@@ -73,7 +76,8 @@ class MatchServiceTest {
                 userProfileRepository,
                 houseAccessValidator,
                 compatibilityCalculator,
-                votingEvaluator
+                votingEvaluator,
+                residenceHistoryService
         );
     }
 
@@ -279,6 +283,7 @@ class MatchServiceTest {
         assertFalse(candidate.getIsHouseAdmin());
         verify(userRepository).save(candidate);
         verify(matchRequestRepository).save(req);
+        verify(residenceHistoryService).recordEntry("candidate-1", "house-1");
     }
 
     @Test
@@ -322,6 +327,7 @@ class MatchServiceTest {
         assertEquals(1, response.getRejectVotes());
         assertEquals(3, response.getTotalHouseMembers());
         verify(matchRequestRepository).save(req);
+        verifyNoInteractions(residenceHistoryService);
     }
 
     @Test
@@ -370,6 +376,7 @@ class MatchServiceTest {
         assertEquals("house-1", candidate.getHouseId());
         assertFalse(response.isHasOtherPendingRequests());
         assertTrue(response.getOtherPendingRequestIds().isEmpty());
+        verify(residenceHistoryService).recordEntry("candidate-1", "house-1");
     }
 
     @Test
@@ -460,6 +467,7 @@ class MatchServiceTest {
         assertEquals("house-A", candidate.getHouseId());
         assertTrue(candidate.getIsHouseAdmin());
         verify(userRepository, never()).save(any());
+        verifyNoInteractions(residenceHistoryService);
     }
 
     @Test
