@@ -132,7 +132,7 @@ No máximo **3 builders ao mesmo tempo** no bloco. A B12 só começa depois que 
   - Mensagens de commit em inglês, no padrão `tipo: descrição` do repositório, sem linha de coautoria.
 - **PRs empilhados:** um PR por tarefa, com base no branch da tarefa anterior da pilha (o primeiro de cada pilha aponta para o `main`). Abra o PR quando a tarefa for commitada.
   - **Nunca faça merge**: eu reviso e mergeio.
-  - Termine a descrição de cada PR com `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+  - Descrição do PR em pt-BR: o que muda, como foi testado e qual tarefa do plano fecha.
 - **Sem polling:** despache e encerre o turno; o Orca te acorda.
 - **PowerShell 5.1:** não aceita `&&`; use `;` ou `; if ($?) { … }`, e evite `>` para gerar arquivos de texto.
 
