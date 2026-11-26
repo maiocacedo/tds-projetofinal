@@ -129,7 +129,7 @@ No máximo **3 builders ao mesmo tempo** no bloco. A B12 só começa depois que 
 - **Nível 3:** worker **novo**, com `--model` explícito; nunca `send` para um worker fechado.
 - **Commit:** você faz, um por tarefa, com `git add <caminhos da tarefa>`. Nunca use `git add -A` nem `git add .`.
   - Os arquivos não rastreados que já existem (`tds-projetofinal-checkpoint2-caio-macedo*`, `tds-projetofinal-checkpoint3-caio-macedo*`) ficam intactos.
-  - Termine cada mensagem de commit com `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+  - Mensagens de commit em inglês, no padrão `tipo: descrição` do repositório, sem linha de coautoria.
 - **PRs empilhados:** um PR por tarefa, com base no branch da tarefa anterior da pilha (o primeiro de cada pilha aponta para o `main`). Abra o PR quando a tarefa for commitada.
   - **Nunca faça merge**: eu reviso e mergeio.
   - Termine a descrição de cada PR com `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
