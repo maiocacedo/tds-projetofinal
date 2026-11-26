@@ -46,5 +46,43 @@ Pasta `web/` neste repositório, Vite + React + TypeScript, Tailwind v4 + Radix,
 - **Aviso de aceite:** ao abrir o app, o aceito vai às boas-vindas (RF06) e depois a uma tela de comemoração; sem e-mail/push.
 - **Votação:** mostra quem já votou, sem o voto, e o meu voto, que dá para trocar enquanto pendente.
 
+## Gestão da casa — [#13](https://github.com/maiocacedo/tds-projetofinal/issues/13)
+- **Vários admins** por casa; um admin promove ou rebaixa outro morador, sempre sobrando pelo menos um.
+- **Remoção por votação:** um admin propõe (motivo opcional), a casa vota pela mesma regra da casa, sem o voto da pessoa; quem votou aparece, a direção não. Aprovada, a saída usa o mesmo repasse do "sair" e as dívidas continuam.
+- **Sair:** se for o último admin, escolhe quem assume. Pode sair devendo, com aviso.
+- **Vagas + Receber pedidos:** contador de vagas (cada aceite desconta uma; em zero a casa sai da busca) e um interruptor que pausa pedidos sem zerar as vagas.
+- **Criar casa:** uma tela só com prévia ao vivo de como os candidatos veem a casa (no celular, prévia compacta fixa no topo).
+
+## Despesas — [#14](https://github.com/maiocacedo/tds-projetofinal/issues/14)
+- Despesa registra **quem pagou** (padrão: quem lançou). As parcelas viram dívida com essa pessoa; Contas mostra "você deve X a fulano" por credor.
+- O credor confirma **Recebi** ou marca **Não recebi** (reabre a parcela, com registro).
+- **Repetir todo mês** em qualquer dia de 1 a 31 (29–31 caem no último dia nos meses curtos).
+- **Divisão customizada** em R$ ou %, com atalho para tirar alguém da conta (valor 0); a soma precisa fechar.
+- **Editar/excluir** só enquanto ninguém pagou. Transparência por morador (contas pagas x de y, valor em aberto) no topo de Contas; no computador, tabela.
+
+## Tarefas — [#15](https://github.com/maiocacedo/tds-projetofinal/issues/15)
+- **Frequência por tarefa:** 1×, 2×, 3× na semana, todo dia ou a cada 15 dias. Os +20 só vêm cumprindo todas as vezes do ciclo.
+- **Ordem da roda** definida pelo admin (padrão: ordem de entrada); "próximo da roda" visível.
+- **Troca na semana:** propor e aceitar/recusar; vale só para o ciclo atual.
+- **Fazer o mercado** vira tarefa (rotativa, quinzenal) com atalho para a lista.
+- Só o responsável conclui; outro morador **reabre**; o admin pode **fechar o ciclo** antes do domingo.
+
+## Mercado e administração do sistema — [#16](https://github.com/maiocacedo/tds-projetofinal/issues/16)
+- **Mercado:** três grupos (Falta comprar, Alguém vai comprar, Comprado nos últimos 7 dias, recolhido) e seletor **Tudo / Eu compro** (modo para usar no mercado).
+- Quantidade inteira com contador digitável; a unidade vai no nome ("Arroz 5 kg").
+- **Eu compro** só em item livre; **Desistir** para quem assumiu; item de outra pessoa → **Comprei mesmo assim** (item e +5 passam para quem comprou).
+- Marcar: o item **fica no lugar** (caixa pula, risco desenhado, "+5" sobe) e só depois vai para Comprado. Aviso com **Desfazer** (~5 s) estorna os pontos.
+- Editar/apagar item não comprado (qualquer morador). Atalho **Lançar gasto do mercado** abre a Nova despesa já preenchida.
+- **Administração** (`/admin/usuarios`): tabela com busca, filtro e ordenação; painel com atalhos (Morador padrão, Admin do sistema) e as 9 permissões como chaves; a própria chave de admin fica travada.
+- Salvar mostra a confirmação ("Tira / Dá") e **revoga os refresh tokens** da pessoa: ela sai em até 15 min.
+- **Sem permissão:** a aba ou ação some; quem entra pela URL vê "Você não tem acesso — fale com o administrador". "Administração" no avatar só aparece para quem tem `ROLE_ADMIN_USERS`.
+
+## Regras gerais de interface
+- **Contadores aceitam digitação** (campo numérico + −/+), em todo lugar.
+- **Ícones:** um conjunto só, **Lucide** (`lucide-react`), e um componente `Logo` com a casinha da splash. Nada de emoji ou caractere como ícone.
+
+## Testes
+- **E2E (RNF03): Playwright**, contra a API real num perfil de teste com H2, com 6 golden paths (entrada e pedido de vaga, votação e boas-vindas, despesa paga e recebida, tarefa feita e reaberta, mercado com desfazer, permissão retirada). Decidido ao fechar o mapa.
+
 ## Fora do escopo do mapa
 Swagger/OpenAPI, plano B de disponibilidade e o código de implementação (vem depois do mapa: spec → plano → execução).

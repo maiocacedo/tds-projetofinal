@@ -68,6 +68,15 @@ Uma família só: **Bricolage Grotesque** (Google Fonts, pesos 400–800). A hie
 | Checklist | Caixa 18 px, raio 6 px; ao marcar, o check é traçado e o texto é riscado com animação |
 | Barra de abas (celular) | 5 abas com ícone + rótulo; indicador desliza com geleia |
 | Tabela | TanStack Table onde houver tabela de verdade (transparência de contas, admin) |
+| Contador | Campo numérico digitável entre −/+ (sem setas nativas); o número faz geleia ao mudar. Vagas, quantidade, dia do mês, valores da divisão |
+| Interruptor | Trilho tomate quando ligado; a bolinha desliza com overshoot e geleia |
+| Aviso (toast) | Pílula escura embaixo, `role="status"`, some em ~5 s; ações reversíveis trazem **Desfazer** |
+| Painel / folha | Desktop: painel lateral que entra da direita. Celular: folha que sobe de baixo. Confirmações em diálogo central |
+| Sem acesso | Estado de página para rota sem permissão: cadeado, explicação, "Voltar para o Início" |
+
+## Ícones
+
+Um conjunto só: **Lucide** (`lucide-react`), traço 2 px com pontas arredondadas, o mesmo desenho dos SVGs dos protótipos. A marca é o componente `Logo` (a casinha da splash). Nada de emoji ou caractere (⌂, ✓, ⋯, ↻) fazendo papel de ícone; ícone sozinho sempre tem `aria-label`.
 
 ## Movimento
 
@@ -89,7 +98,10 @@ Ao concluir um item de checklist, o risco atravessa o texto da esquerda para a d
 Seções da landing sobem e aparecem ao entrar na tela (`animation-timeline: view()` no protótipo; no app, uma solução que funcione em todos os navegadores). O conteúdo é visível por padrão: a animação só melhora, nunca esconde.
 
 ### Splash
-Na primeira abertura de cada sessão: o quadrado tomate surge, a casinha da logo é desenhada, a porta abre e a câmera entra por ela até o site. Versão **vermelha**: a tela já nasce tomate, a casa branca grande é desenhada (sem quadrado), assenta em geleia, a porta abre com luz e a câmera mergulha nela até o site. ~2,4–3,2 s, botão Pular, e cobre o refresh silencioso da sessão (logado → Início; deslogado → landing).
+Versão **vermelha**, na primeira abertura de cada sessão: a tela já nasce tomate, a casa branca grande é desenhada (sem quadrado), assenta em geleia, a porta abre com luz e a câmera mergulha nela até o site. ~2,4–3,2 s, botão Pular, e cobre o refresh silencioso da sessão (logado → Início; deslogado → landing).
+
+### Item que conclui no lugar
+Ao marcar um item que muda de grupo (mercado: "Comprado"), ele **não pula** na hora: a caixa faz geleia, o check e o risco são desenhados, o feedback sobe ("+5") e só depois (~1 s) o cartão some de leve e reaparece no grupo novo.
 
 ### Comemoração
 Momentos de conquista (entrar numa casa) ganham comemoração: ícone que pousa em geleia, confete saindo do ícone nas cores do app, raios suaves girando atrás e textos subindo em sequência. Sem confete com `prefers-reduced-motion`.
@@ -102,4 +114,4 @@ Momentos de conquista (entrar numa casa) ganham comemoração: ícone que pousa 
 
 ## Dados de exemplo (protótipos)
 
-República Jabuticaba: Ana (você), Bruno (admin), Luiza e Tiago. Contas da Ana: Luz R$ 62,40 (28/11), Gás R$ 100,00 (01/12), Internet R$ 25,00 (05/12), total R$ 187,40. Candidatos: Marina Costa 85% (420 pts · 8 meses no Nosso Teto) e Rafael Fontes 70% (Novo no Nosso Teto). A compatibilidade sempre fecha em múltiplos de 5.
+República Jabuticaba: Ana (você), Bruno (admin), Luiza e Tiago. Despesas: Luz R$ 249,60 (Bruno pagou), Gás R$ 400,00 (Luiza pagou), Internet R$ 100,00 e Aluguel R$ 3.400,00 (Bruno, todo mês). A Ana deve R$ 87,40 ao Bruno e R$ 100,00 à Luiza. Mercado: Detergente × 3, Papel higiênico, Café 500 g × 2 (Bruno vai comprar), Ovos × 2 (Ana vai comprar). Candidatos: Marina Costa 85% (420 pts · 8 meses no Nosso Teto) e Rafael Fontes 70% (Novo no Nosso Teto). A compatibilidade sempre fecha em múltiplos de 5.

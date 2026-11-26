@@ -1,6 +1,6 @@
 # Arquitetura do frontend
 
-Decidida em [Qual é a stack do front? (#17)](https://github.com/maiocacedo/tds-projetofinal/issues/17) e [#10](https://github.com/maiocacedo/tds-projetofinal/issues/10). Nada disso está implementado ainda; este documento é a referência para a spec e o plano.
+Decidida em [Qual é a stack do front? (#17)](https://github.com/maiocacedo/tds-projetofinal/issues/17) e [#10](https://github.com/maiocacedo/tds-projetofinal/issues/10). Nada disso está implementado ainda; a spec da implementação está em [`docs/superpowers/specs/2026-11-26-entrega-final-frontend-e-api-design.md`](../superpowers/specs/2026-11-26-entrega-final-frontend-e-api-design.md).
 
 ## Stack
 
@@ -11,9 +11,10 @@ Decidida em [Qual é a stack do front? (#17)](https://github.com/maiocacedo/tds-
 | Primitivos acessíveis | Radix (dialog, menu, tabs…) | Foco, teclado e ARIA sem impor visual |
 | Rotas | React Router 7 (modo biblioteca) | Conhecido, suficiente para ~27 rotas |
 | Dados | TanStack Query sobre um wrapper de `fetch` | Cache, invalidação, estados de carregando/erro |
-| Tabelas | TanStack Table (headless) | Só onde houver tabela de verdade |
+| Tabelas | TanStack Table (headless) | Só onde houver tabela de verdade (transparência de contas, admin) |
+| Ícones | `lucide-react` + componente `Logo` | Um conjunto só, mesmo traço dos protótipos |
 | Formulários | React Hook Form + Zod | Mesmos schemas validam formulário e resposta |
-| Testes | Vitest + Testing Library | Prioridade: wrapper de auth; E2E decidido depois |
+| Testes | Vitest + Testing Library + MSW; Playwright no E2E | Telas testadas contra handlers que seguem o contrato da API; golden paths de ponta a ponta contra a API real |
 | Ferramentas | npm + Node 22 LTS (`.nvmrc`, `engines`) | Nada a instalar além do Node |
 
 ## Estrutura de pastas (proposta)
@@ -55,12 +56,12 @@ O app tem dois estados logados, porque um usuário mora em no máximo uma casa:
 |---|---|---|
 | Público | — | `/`, `/sobre`, `/entrar`, `/cadastro` |
 | Primeiro acesso | — | `/onboarding` (ficha; bloqueia o Explorar até as 5 respostas do match) |
-| Candidato | Explorar, Solicitações, Perfil | `/explorar`, `/casas/:id`, `/solicitacoes`, `/casas/nova`, `/bem-vindo` |
-| Morador | Início, Contas, Tarefas, Mercado, Casa | `/inicio`, `/contas`, `/contas/:id`, `/tarefas`, `/mercado`, `/casa`, `/casa/candidatos`, `/casa/configurar`, `/mudanca/:requestId` |
+| Candidato | Explorar, Solicitações, Perfil | `/explorar`, `/casas/:id`, `/solicitacoes`, `/casas/nova`, `/bem-vindo` (boas-vindas + comemoração) |
+| Morador | Início, Contas, Tarefas, Mercado, Casa | `/inicio`, `/contas`, `/contas/nova`, `/contas/:id`, `/tarefas`, `/tarefas/nova`, `/mercado`, `/casa`, `/casa/candidatos`, `/casa/configurar`, `/explorar` (pedir vaga em outra casa), `/mudanca/:requestId` |
 | Qualquer logado | avatar | `/perfil`, sair |
 | Admin do sistema | avatar | `/admin/usuarios` (só com `ROLE_ADMIN_USERS`) |
 
-Um guard decide o destino a partir de `GET /api/users/me` (tem casa? ficha completa? permissões).
+Um guard decide o destino a partir de `GET /api/users/me` (tem casa? ficha completa? permissões). Aba ou ação sem a permissão correspondente **some**; a rota acessada pela URL mostra o estado "sem acesso".
 
 ## Dados
 
@@ -72,7 +73,7 @@ Um guard decide o destino a partir de `GET /api/users/me` (tem casa? ficha compl
 
 - Vitest + Testing Library: componentes do design system e, principalmente, o wrapper de auth (401 → refresh único → retry; refresh falho → logout).
 - Job novo no GitHub Actions para `web/`: lint, typecheck, testes e build.
-- E2E (Cypress ou Playwright) e golden paths: decididos quando as telas existirem.
+- E2E com **Playwright** (Chromium) contra a API real num perfil de teste com H2 em memória; cada teste cria os próprios dados pela API. Os 6 golden paths estão na spec. Job `e2e` próprio no CI.
 
 ## Demo
 
@@ -80,4 +81,4 @@ Um guard decide o destino a partir de `GET /api/users/me` (tem casa? ficha compl
 
 ## Dependências da API
 
-O front depende de lacunas registradas no [#19](https://github.com/maiocacedo/tds-projetofinal/issues/19), entre elas: client público no OAuth, pontuação e histórico de moradia, listar as próprias solicitações, mudança de casa com confirmação, reabrir tarefa, score vazio para perfil incompleto, validação de cadastro e recuperação de senha simulada.
+O front depende das lacunas do [#19](https://github.com/maiocacedo/tds-projetofinal/issues/19), com o contrato de cada uma fixado na spec: client OAuth público; validação do cadastro e score vazio para ficha incompleta; recuperação de senha simulada; pontos (ledger) e tempo de moradia; solicitações do candidato, desistir, vagas, Receber pedidos e quem votou; mudança de casa com reserva de 72 h; vários admins, herdeiro ao sair e remoção por votação; despesas com quem pagou, "não recebi", recorrência e edição; tarefas com frequência, roda, troca, reabrir e atalho do mercado; mercado com quem adicionou, desistir, "comprei mesmo assim" e desfazer; admin com nome da casa, catálogo de permissões e revogação de sessão.
