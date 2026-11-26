@@ -33,6 +33,7 @@ class RefreshTokenServiceTest {
 
     private String newUser() {
         com.nossoteto.dto.RegisterRequest r = new com.nossoteto.dto.RegisterRequest();
+        r.setName("Usuario Teste");
         r.setEmail("rt-" + UUID.randomUUID() + "@nossoteto.com");
         r.setPassword("senha123");
         return authService.registerUser(r).getId();
