@@ -349,6 +349,8 @@ npx newman run NossoTeto.postman_collection.json --env-var "adminPassword=<sua s
 | [`docs/security-ci-strategy.md`](docs/security-ci-strategy.md) | Estratégia de segurança, CI e variáveis de ambiente |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | Especificações de design de cada checkpoint |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | Planos de implementação de cada checkpoint |
+| [`docs/frontend/`](docs/frontend/) | Frontend da entrega final: design system, decisões e arquitetura |
+| [`CONTEXT.md`](CONTEXT.md) | Glossário do domínio |
 
 ---
 
