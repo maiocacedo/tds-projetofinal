@@ -1,6 +1,8 @@
 # Prompt: implementação da entrega final (frontend + lacunas da API)
 
-> Cole o bloco abaixo numa sessão nova do Claude Code (modelo **Claude Opus 5.5**), aberta na raiz do repositório.
+> **Onde rodar:** no **Antigravity**, com o modelo **Claude Opus 5.5 (High)** (`claude-opus-5-5-high`), numa sessão aberta **num terminal do Orca** na raiz deste clone. É o terminal do Orca que permite ao Orca acordar o coordenador quando um worker termina.
+> Nada aqui gasta a cota do Claude Code: builders, crítico e advisor rodam todos pelo Antigravity.
+> Cole o bloco abaixo.
 
 ---
 
@@ -9,8 +11,13 @@ Você é o **Coordenador** da implementação da entrega final do Nosso Teto: o 
 ## 0. Antes de qualquer coisa
 
 1. **Pré-requisito:** o PR #20 (docs do frontend, spec e este prompt) precisa estar mergeado no `main`. Rode `git fetch` e confira se `docs/superpowers/specs/2026-11-26-entrega-final-frontend-e-api-design.md` existe em `origin/main`. Se não existir, **pare e me avise**.
-2. **Advisor:** use o advisor (Claude Opus 5.5) antes de fechar o plano, antes de despachar cada leva de tarefas paralelas, antes de abrir cada PR e sempre que travar.
-3. Carregue as skills, nesta ordem: `orchestration` (rode `orca skills get orchestration`), `writing-plans` e `gauntlet-orca`.
+2. **Advisor:** um worker Claude Opus 5.5 **somente leitura** (seção 1), consultado antes de fechar o plano, antes de despachar cada leva de tarefas paralelas, antes de abrir cada PR e sempre que travar.
+   - Ele não vê a sua conversa. Mande um briefing curto: o que está em jogo, a decisão que você vai tomar, os arquivos ou o diff relevantes e a pergunta exata.
+   - Encerre o turno e espere a resposta. Leve o conselho a sério; se discordar, explique por quê no plano ou no PR.
+3. Carregue o método. As skills são do Claude Code, então **leia os arquivos inteiros**, nesta ordem:
+   - `orca skills get orchestration` (guia do Orca, roda em qualquer agente);
+   - `C:\Users\cainh\.claude\skills\writing-plans\SKILL.md` (formato do plano);
+   - `C:\Users\cainh\.claude\skills\gauntlet-orca\SKILL.md` (portões Builder → Nível 1 → Crítico → Nível 3, com os templates de spec).
 4. Leia a **fonte da verdade**:
    - a spec, no arquivo acima e na issue [#21](https://github.com/maiocacedo/tds-projetofinal/issues/21) (se divergirem, vale o arquivo);
    - `docs/frontend/` (design-system, decisões, arquitetura) e `CONTEXT.md`;
@@ -21,14 +28,14 @@ Você é o **Coordenador** da implementação da entrega final do Nosso Teto: o 
 
 | Papel | Quem | Como despachar |
 |---|---|---|
-| Coordenador | esta sessão (Claude Opus 5.5) | — |
-| Advisor | Claude Opus 5.5 | ferramenta `advisor` desta sessão |
+| Coordenador | esta sessão (Antigravity, Claude Opus 5.5 High) | — |
+| Advisor | Claude **Opus 5.5**, somente leitura | `orca orchestration worker-start --agent antigravity --model claude-opus-5-5-high …` |
 | Builder, tarefa complexa | Gemini 4 **Neon** | `orca orchestration worker-start --agent antigravity --model gemini-4-neon-high …` |
 | Builder, tarefa mais simples | Gemini 4 **Hydrogen** | `orca orchestration worker-start --agent antigravity --model gemini-4-hydrogen-high …` |
-| Crítico (Nível 2) | Claude **Opus 5.5**, somente leitura | `orca orchestration worker-start --agent claude --model <id do Opus 5.5> …` |
+| Crítico (Nível 2) | Claude **Opus 5.5**, somente leitura | `orca orchestration worker-start --agent antigravity --model claude-opus-5-5-high …` |
 
-- Esta tabela **substitui** a tabela de modelos do `gauntlet-orca` (que sugere Argon e Hydrogen).
-- Depois de todo `worker-start`, confirme o modelo real com `orca orchestration worker-read --dispatch <id> --source auto`. Se vier outro modelo, corrija; nunca aceite uma troca silenciosa. Para o Crítico, use o id do Opus 5.5 que o Orca aceitar e confirme da mesma forma.
+- Esta tabela **substitui** a tabela de modelos do `gauntlet-orca` (que sugere Argon e Hydrogen e o Crítico em `--agent claude`).
+- Depois de todo `worker-start`, confirme o modelo real com `orca orchestration worker-read --dispatch <id> --source auto`. Se vier outro modelo, corrija; nunca aceite uma troca silenciosa. Se o Orca não aceitar `claude-opus-5-5-high` com `--agent antigravity`, **pare e me pergunte**. Não troque por `--agent claude`: isso gasta a cota do Claude Code.
 - **Neon ou Hydrogen se decide pelo risco de raciocínio, não pelo volume** ("simples" não quer dizer "pouco trabalho"):
   - **Neon:** estado e concorrência (ledger idempotente, máquinas de estado do match e da mudança, jobs de recorrência e ciclo), segurança e sessão (client OAuth público, recuperação de senha, wrapper de refresh single-flight), fundação do front (scaffold, componentes com movimento), telas com muitos fluxos.
   - **Hydrogen:** campos e endpoints diretos com contrato fechado, telas que seguem um protótipo e um contrato prontos, documentação e collection.
@@ -36,7 +43,7 @@ Você é o **Coordenador** da implementação da entrega final do Nosso Teto: o 
 
 ## 2. Plano (antes de despachar)
 
-Com a skill `writing-plans`, escreva `docs/superpowers/plans/2026-11-26-entrega-final-plan.md` a partir da spec. Use a quebra abaixo como ponto de partida: pode ajustar, mas justifique no plano. Cada tarefa do plano precisa ter:
+Seguindo o `writing-plans`, escreva `docs/superpowers/plans/2026-11-26-entrega-final-plan.md` a partir da spec. Use a quebra abaixo como ponto de partida: pode ajustar, mas justifique no plano. Cada tarefa do plano precisa ter:
 - ownership explícito de arquivos;
 - dependências;
 - modelo (Neon ou Hydrogen);
@@ -113,7 +120,7 @@ No máximo **3 builders ao mesmo tempo** no bloco. A B12 só começa depois que 
 - **Portão Nível 1 (sempre, por tarefa):** ownership conferido com `git status --short`, `git diff --check`, depois a suíte completa uma vez no pacote afetado:
   - API: `mvn -B verify`;
   - Web: `npm run lint`, `npm run typecheck` e `npm test -- --maxWorkers=4`.
-- **Portão Nível 2 (Crítico Opus 5.5) é obrigatório** em:
+- **Portão Nível 2 (Crítico Opus 5.5 via Antigravity) é obrigatório** em:
   - todas as tarefas Neon;
   - qualquer tarefa que toque segurança, sessão, permissões, dinheiro, pontos ou migração.
   - Nas telas Hydrogen (F4, F5, F8–F11), use o Crítico agrupando 2 ou 3 telas por rodada.
@@ -148,4 +155,4 @@ No máximo **3 builders ao mesmo tempo** no bloco. A B12 só começa depois que 
 
 1. As pilhas de PRs prontas para revisão, com o CI verde em cada uma.
 2. Um resumo para mim: o que entrou, o que ficou de fora, divergências de contrato encontradas, testes (números reais, incluindo os E2E) e os comandos da demo (`mvn spring-boot:run` + `npm run dev` em `web/`).
-3. Chame o advisor antes de declarar pronto.
+3. Consulte o advisor antes de declarar pronto.
