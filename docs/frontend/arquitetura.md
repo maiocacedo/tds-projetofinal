@@ -14,7 +14,7 @@ Decidida em [Qual é a stack do front? (#17)](https://github.com/maiocacedo/tds-
 | Tabelas | TanStack Table (headless) | Só onde houver tabela de verdade (transparência de contas, admin) |
 | Ícones | `lucide-react` + componente `Logo` | Um conjunto só, mesmo traço dos protótipos |
 | Formulários | React Hook Form + Zod | Mesmos schemas validam formulário e resposta |
-| Testes | Vitest + Testing Library + MSW | Telas testadas contra handlers que seguem o contrato da API; E2E decidido depois |
+| Testes | Vitest + Testing Library + MSW; Playwright no E2E | Telas testadas contra handlers que seguem o contrato da API; golden paths de ponta a ponta contra a API real |
 | Ferramentas | npm + Node 22 LTS (`.nvmrc`, `engines`) | Nada a instalar além do Node |
 
 ## Estrutura de pastas (proposta)
@@ -73,7 +73,7 @@ Um guard decide o destino a partir de `GET /api/users/me` (tem casa? ficha compl
 
 - Vitest + Testing Library: componentes do design system e, principalmente, o wrapper de auth (401 → refresh único → retry; refresh falho → logout).
 - Job novo no GitHub Actions para `web/`: lint, typecheck, testes e build.
-- E2E (Cypress ou Playwright) e golden paths: decididos quando as telas existirem.
+- E2E com **Playwright** (Chromium) contra a API real num perfil de teste com H2 em memória; cada teste cria os próprios dados pela API. Os 6 golden paths estão na spec. Job `e2e` próprio no CI.
 
 ## Demo
 

@@ -209,11 +209,17 @@ Rotas relativas a `/api/houses/{h}`.
   - **Frontend, telas:** Vitest + Testing Library contra handlers **MSW** que seguem os contratos desta spec: o usuário vê, clica e o resultado aparece. Um teste por fluxo principal de cada tela (ex.: marcar item como comprado mostra o risco e depois vai para Comprado; desfazer devolve).
   - **Frontend, componentes:** acessibilidade dos componentes interativos (papéis, `aria-checked`/`aria-pressed`, teclado) e a alternativa de movimento reduzido.
 - **Gates:** `mvn -B verify` continua verde (JaCoCo ≥ 0,80 e Checkstyle). O CI ganha um job para `web/` (lint, typecheck, testes, build).
-- **E2E (RNF03):** ferramenta e golden paths **ainda em aberto** (#7, "Not yet specified"); decidir quando as telas existirem.
+- **E2E (RNF03): Playwright** (Chromium), rodando contra a API real com um perfil de teste (H2 em memória, nunca o MySQL local) e o front servido pelo Vite. Cada teste cria os próprios usuários e casas pela API (cadastro + token), sem depender de dados prévios. Golden paths:
+  1. Cadastro → ficha completa → Explorar → pedir vaga numa casa.
+  2. Morador vota na solicitação; o candidato aceito passa pelas boas-vindas e vira morador.
+  3. Lançar uma despesa → outro morador marca "Paguei" → o credor confirma "Recebi".
+  4. Marcar uma tarefa como feita (risco desenhado) e outro morador reabrir.
+  5. Mercado: adicionar item, outro morador marca comprado (+5) e desfaz.
+  6. Administrador do sistema tira uma permissão e a aba correspondente some para a pessoa depois que ela entra de novo.
+  Job próprio no CI (sobe a API e o front, roda os testes, guarda o relatório e os traces quando falhar).
 
 ## Out of Scope
 
-- Escolha da ferramenta de E2E (decisão pendente).
 - Swagger/OpenAPI (RNF04), deploy e plano B de disponibilidade.
 - E-mail e push reais (a recuperação de senha é simulada; o aviso de aceite aparece ao abrir o app).
 - Ranking de pontos, pontos negativos e votos que pontuam.

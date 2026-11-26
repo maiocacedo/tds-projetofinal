@@ -81,5 +81,8 @@ Pasta `web/` neste repositório, Vite + React + TypeScript, Tailwind v4 + Radix,
 - **Contadores aceitam digitação** (campo numérico + −/+), em todo lugar.
 - **Ícones:** um conjunto só, **Lucide** (`lucide-react`), e um componente `Logo` com a casinha da splash. Nada de emoji ou caractere como ícone.
 
+## Testes
+- **E2E (RNF03): Playwright**, contra a API real num perfil de teste com H2, com 6 golden paths (entrada e pedido de vaga, votação e boas-vindas, despesa paga e recebida, tarefa feita e reaberta, mercado com desfazer, permissão retirada). Decidido ao fechar o mapa.
+
 ## Fora do escopo do mapa
 Swagger/OpenAPI, plano B de disponibilidade e o código de implementação (vem depois do mapa: spec → plano → execução).

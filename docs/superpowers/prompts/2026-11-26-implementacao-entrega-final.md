@@ -92,6 +92,7 @@ No máximo **3 builders ao mesmo tempo** no bloco. A B12 só começa depois que 
 | F10 | Início (dashboard) | Hydrogen | F1, F2 |
 | F11 | Administração (TanStack Table, painel/folha, confirmação) | Hydrogen | F1, F2 |
 | F12 | Integração com a API real: desligar MSW no dev, rodar os fluxos contra o backend, corrigir divergências de contrato, README da demo | Neon | todo o bloco API + F3–F11 |
+| F13 | E2E com **Playwright** (Chromium): perfil de teste da API com H2 em memória, os 6 golden paths da spec (cada teste cria os próprios dados pela API), job `e2e` no CI com relatório e traces em falha | Neon | F12 |
 
 - **Ordem:** F0 → F1 → F2 em sequência, numa pilha só. Depois, cada tela (F3–F11) ganha **o seu worktree**, num branch que sai da F2.
 - **Para as telas não colidirem:** F1 cria todas as rotas apontando para arquivos de página por convenção, e cada tarefa de tela só preenche as próprias páginas.
@@ -141,10 +142,10 @@ No máximo **3 builders ao mesmo tempo** no bloco. A B12 só começa depois que 
   - configuração de segurança → raia A, em série;
   - enums de status do match → raia C, em série.
 - Contrato mudou? Atualize a spec, os handlers MSW e a tarefa de documentação no mesmo commit, e me avise.
-- **E2E (RNF03) continua em aberto:** não escolha Cypress nem Playwright sem me perguntar.
+- **E2E (RNF03): Playwright**, contra a API real em perfil de teste com H2. Nunca rode E2E contra o MySQL local.
 
 ## 5. Quando terminar
 
 1. As pilhas de PRs prontas para revisão, com o CI verde em cada uma.
-2. Um resumo para mim: o que entrou, o que ficou de fora, divergências de contrato encontradas, testes (números reais) e os comandos da demo (`mvn spring-boot:run` + `npm run dev` em `web/`).
+2. Um resumo para mim: o que entrou, o que ficou de fora, divergências de contrato encontradas, testes (números reais, incluindo os E2E) e os comandos da demo (`mvn spring-boot:run` + `npm run dev` em `web/`).
 3. Chame o advisor antes de declarar pronto.
