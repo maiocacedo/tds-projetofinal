@@ -46,7 +46,7 @@ Com a skill `writing-plans`, escreva `docs/superpowers/plans/2026-11-26-entrega-
 
 **Mostre o plano e espere o meu OK antes do primeiro `worker-start`.**
 
-### Bloco API — worktree `feat/api-lacunas`
+### Bloco API — branches `feat/api-<id>-<assunto>`
 
 | Id | Tarefa | Modelo | Depende de | Migração |
 |---|---|---|---|---|
@@ -65,9 +65,17 @@ Com a skill `writing-plans`, escreva `docs/superpowers/plans/2026-11-26-entrega-
 | B13 | Dashboard: vencimentos, atrasadas, pontos do mês, mercado | Hydrogen | B8, B9, B10 | — |
 | B12 | `docs/api-routes.md`, collection do Postman, matriz de autorização (`AuthorizationMatrixIntegrationTest`), README | Hydrogen | todas | — |
 
-Raias paralelas: **A** = B1 → B2 → B3 → B11 · **B** = B4 → (B8 ∥ B9 ∥ B10) → B13 · **C** = B4 → B4b → B5 → B7 → B6. No máximo **3 builders ao mesmo tempo** por bloco.
+Três raias paralelas, cada uma uma **pilha de branches**, com uma tarefa por worktree (veja a seção 3):
+- **A** = B1 → B2 → B3 → B11 (sai do `main`);
+- **B** = B4 → B8 → B9 → B10 → B13 (sai do `main`; as três do meio em sequência);
+- **C** = B4b → B5 → B7 → B6 (sai do commit da B4, então começa quando a B4 for aprovada).
 
-### Bloco Web — worktree `feat/web-frontend`
+No máximo **3 builders ao mesmo tempo** no bloco. A B12 só começa depois que eu mergear as raias.
+
+- **B1** atualiza a configuração de clients de teste e todos os testes de integração que pegam token do `nosso-teto-web` com Basic + secret (`OAuthTokenEndpointHttpTest`, `OAuthPasswordFlowIntegrationTest`, `RefreshTokenFlowIntegrationTest`, `NossoTetoIntegrationTest`, `AdminPermissionFlowIntegrationTest`, `ApiErrorHandlingTest`, `ProfileEncryptionIntegrationTest` e os de repositório/serviço de refresh token). Os testes passam a usar o client público ou um client confidencial de teste.
+- **B7** remove o `DELETE /members/{memberId}`: atualiza `HouseControllerTest` e a linha correspondente de `AuthorizationMatrixIntegrationTest`.
+
+### Bloco Web — branches `feat/web-<id>-<assunto>`
 
 | Id | Tarefa | Modelo | Depende de |
 |---|---|---|---|
@@ -85,15 +93,22 @@ Raias paralelas: **A** = B1 → B2 → B3 → B11 · **B** = B4 → (B8 ∥ B9 �
 | F11 | Administração (TanStack Table, painel/folha, confirmação) | Hydrogen | F1, F2 |
 | F12 | Integração com a API real: desligar MSW no dev, rodar os fluxos contra o backend, corrigir divergências de contrato, README da demo | Neon | todo o bloco API + F3–F11 |
 
+- **Ordem:** F0 → F1 → F2 em sequência, numa pilha só. Depois, cada tela (F3–F11) ganha **o seu worktree**, num branch que sai da F2.
 - **Para as telas não colidirem:** F1 cria todas as rotas apontando para arquivos de página por convenção, e cada tarefa de tela só preenche as próprias páginas.
 - F0 cria registros que juntam automaticamente (via `import.meta.glob`) os handlers MSW, os schemas e o mapa de erros por recurso. Assim cada tarefa só cria os arquivos do próprio recurso.
 - F3 a F11 rodam em paralelo (no máximo 3 por vez), cada uma contra MSW com os contratos da spec.
+- A F12 só começa depois que eu mergear o bloco API e as telas.
 
-**Os dois blocos começam juntos** (B1 e B4 ∥ F0), cada um no seu worktree. O único ponto de encontro é a F12.
+**Os dois blocos começam juntos** (B1, B4 e F0, cada uma no seu worktree). O único ponto de encontro é a F12.
 
 ## 3. Execução (gauntlet-orca)
 
-- **Worktrees:** crie um worktree filho por bloco a partir do `main` (`--worktree new-child`, com os branches `feat/api-lacunas` e `feat/web-frontend`). Os builders de um bloco rodam no worktree dele.
+- **Um builder por worktree, sempre.** Duas tarefas no mesmo worktree se quebram:
+  - o Maven compila todo o código em qualquer teste;
+  - `typecheck`, `lint` e `build` do `web/` olham o projeto inteiro;
+  - o `git status` passa a mostrar arquivos do vizinho.
+- **Branches empilhados:** cada tarefa tem o seu branch (ex.: `feat/api-b1-client-publico`), criado a partir do branch da tarefa de que depende e num worktree próprio (`--worktree new-child` com `--base-branch`). Uma raia é uma pilha.
+- **Pontos de encontro:** tarefas que dependem de duas pilhas (B12, F12) começam do `main` depois que eu mergear o que vem antes. Se precisar juntar branches antes disso, **me pergunte**; não faça merge sozinho.
 - **Portão Nível 1 (sempre, por tarefa):** ownership conferido com `git status --short`, `git diff --check`, depois a suíte completa uma vez no pacote afetado:
   - API: `mvn -B verify`;
   - Web: `npm run lint`, `npm run typecheck` e `npm test -- --maxWorkers=4`.
@@ -106,7 +121,7 @@ Raias paralelas: **A** = B1 → B2 → B3 → B11 · **B** = B4 → (B8 ∥ B9 �
 - **Commit:** você faz, um por tarefa, com `git add <caminhos da tarefa>`. Nunca use `git add -A` nem `git add .`.
   - Os arquivos não rastreados que já existem (`tds-projetofinal-checkpoint2-caio-macedo*`, `tds-projetofinal-checkpoint3-caio-macedo*`) ficam intactos.
   - Termine cada mensagem de commit com `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- **PRs:** abra um PR por bloco como **draft** assim que a primeira tarefa entrar, e atualize a descrição com a lista de tarefas concluídas. Se o PR da API ficar grande demais, divida por raia em PRs empilhados.
+- **PRs empilhados:** um PR por tarefa, com base no branch da tarefa anterior da pilha (o primeiro de cada pilha aponta para o `main`). Abra o PR quando a tarefa for commitada.
   - **Nunca faça merge**: eu reviso e mergeio.
   - Termine a descrição de cada PR com `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - **Sem polling:** despache e encerre o turno; o Orca te acorda.
@@ -120,8 +135,9 @@ Raias paralelas: **A** = B1 → B2 → B3 → B11 · **B** = B4 → (B8 ∥ B9 �
 - `APP_CRYPTO_KEY` nunca muda. O `.env` com segredos reais nunca vai para o git nem para zip nenhum.
 - A flag da recuperação de senha nasce **desligada**. Com ela ligada, qualquer pessoa que saiba um e-mail troca a senha dele: é só para a demo local.
 - Access token só em memória; nada de `localStorage` ou `sessionStorage` para token (o `sessionStorage` guarda só a flag "splash já exibida").
+- **Cada tarefa conserta os testes que a mudança dela quebra.** Isso vale para testes existentes, fixtures compartilhadas e linhas da matriz de autorização das rotas que ela altera ou remove, e esses arquivos entram no ownership da tarefa. O Nível 1 (`mvn -B verify` verde) vale para toda tarefa.
 - Arquivos compartilhados com dono único:
-  - `docs/api-routes.md`, a collection do Postman e `AuthorizationMatrixIntegrationTest` → só a B12;
+  - `docs/api-routes.md` e a collection do Postman → só a B12. A B12 também acrescenta à `AuthorizationMatrixIntegrationTest` as linhas dos endpoints **novos** (alterar ou remover linha existente é da tarefa que mudou a rota);
   - configuração de segurança → raia A, em série;
   - enums de status do match → raia C, em série.
 - Contrato mudou? Atualize a spec, os handlers MSW e a tarefa de documentação no mesmo commit, e me avise.
@@ -129,6 +145,6 @@ Raias paralelas: **A** = B1 → B2 → B3 → B11 · **B** = B4 → (B8 ∥ B9 �
 
 ## 5. Quando terminar
 
-1. Os dois PRs (ou as pilhas) prontos para revisão, com o CI verde.
+1. As pilhas de PRs prontas para revisão, com o CI verde em cada uma.
 2. Um resumo para mim: o que entrou, o que ficou de fora, divergências de contrato encontradas, testes (números reais) e os comandos da demo (`mvn spring-boot:run` + `npm run dev` em `web/`).
 3. Chame o advisor antes de declarar pronto.

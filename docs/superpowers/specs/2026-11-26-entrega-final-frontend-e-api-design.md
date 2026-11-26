@@ -104,7 +104,8 @@ O frontend é desenvolvido contra **handlers MSW que seguem os contratos abaixo*
 ## Implementation Decisions
 
 ### Organização do trabalho
-- **Dois blocos independentes:** API (backend existente) e Web (pasta `web/` nova). Cada bloco tem seu worktree e seu branch; as tarefas de um bloco com arquivos disjuntos podem rodar em paralelo.
+- **Dois blocos independentes:** API (backend existente) e Web (pasta `web/` nova), que andam em paralelo. Dentro de cada bloco, as tarefas formam **pilhas de branches**, uma tarefa por branch e por worktree. Tarefas sem dependência entre si rodam em pilhas paralelas, nunca no mesmo worktree.
+- Cada tarefa atualiza os testes existentes que a mudança dela quebra (por exemplo, o client público muda como os testes de integração pegam token).
 - **Contratos primeiro:** as seções abaixo são a fonte da verdade. O front implementa handlers MSW com exatamente esses formatos; o backend implementa e testa os mesmos. Mudança de contrato durante a implementação precisa atualizar esta spec, os handlers e a documentação da API no mesmo commit.
 - **Formato de erro** continua `{ "error": "<mensagem estável em inglês>" }`; o front traduz por um mapa de mensagens. As mensagens novas estão listadas em cada contrato.
 - **Campos** em camelCase inglês, como os DTOs atuais (aliases em português continuam aceitos onde já existem).
@@ -114,7 +115,7 @@ Para tarefas paralelas não colidirem: V5 recuperação de senha · V6 ledger de
 
 ### Contratos: autenticação ([#10](https://github.com/maiocacedo/tds-projetofinal/issues/10), [#11](https://github.com/maiocacedo/tds-projetofinal/issues/11))
 - **Client público:** a configuração de clients ganha a flag `public`. `nosso-teto-web` é público e sem secret; `nosso-teto-mobile` continua confidencial. O startup falha se um público tiver secret ou um confidencial não tiver.
-- `POST /oauth/token` e `DELETE /oauth/token/revoke`: client público manda `client_id=nosso-teto-web` no corpo, sem `Authorization`; confidencial continua com Basic. Basic **e** `client_id` no corpo → `400 {"error":"invalid_request"}`. Refresh do web: `grant_type=refresh_token&client_id=nosso-teto-web` + cookie HttpOnly.
+- `POST /oauth/token` e `DELETE /oauth/token/revoke`: client público manda `client_id=nosso-teto-web` no corpo, sem `Authorization`; confidencial continua com Basic. Basic **e** `client_id` no corpo → `400 {"error":"invalid_request"}`. Client público que manda só Basic, ou confidencial sem Basic → `401 {"error":"invalid_client"}`. Refresh do web: `grant_type=refresh_token&client_id=nosso-teto-web` + cookie HttpOnly.
 - `POST /api/auth/register` valida: nome obrigatório (`"name is required"`), e-mail válido (`"invalid email"`), senha ≥ 8 (`"password must have at least 8 characters"`). E-mail já usado mantém o comportamento atual.
 - **Recuperação simulada:** `POST /api/auth/password-reset {email}` → sempre `202 {}`. Com a flag de demo ligada (**desligada por padrão**), a resposta é `202 {"demoToken":"..."}`. `POST /api/auth/password-reset/confirm {token, newPassword}` → `204`. Erros: `"invalid or expired token"`, regra da senha. Token guardado como hash, uso único, 15 min; ao trocar a senha, revoga todos os refresh tokens do usuário. Os dois endpoints são públicos.
 
@@ -156,7 +157,8 @@ Para tarefas paralelas não colidirem: V5 recuperação de senha · V6 ledger de
 - `PUT /api/houses/{h}/expenses/{e}` (título, valor, vencimento, quem pagou, recorrência) e `DELETE …/expenses/{e}` → só quem lançou e só enquanto nenhuma parcela de outra pessoa foi paga (`409 "expense already has payments"`).
 - `propose-split` aceita valor **0** (pessoa fora da conta). A soma precisa fechar o total (`"split must add up to the total"`). O front converte % em R$ antes de enviar; a diferença de centavos fica com quem pagou.
 - `GET /api/houses/{h}/expenses/summary` → `{ myDebts: [{ creditorId, creditorName, amount }], owedToMe: [{ debtorId, debtorName, amount }], members: [{ userId, name, paidCount, totalCount, openAmount }] }`.
-- **Recorrência:** job diário cria a despesa do mês no dia configurado (29–31 caem no último dia em meses curtos), dividida igualmente entre os moradores atuais. Idempotente por mês. Quem criou ou um admin pausa ou edita.
+- **Recorrência:** job diário cria a despesa do mês no dia configurado (29–31 caem no último dia em meses curtos), dividida igualmente entre os moradores atuais. Idempotente por mês.
+- `PUT /api/houses/{h}/expenses/{e}/recurrence {active, day}` → `200`. Pausa, retoma ou muda o dia; vale para os próximos meses. Só quem criou ou um admin, e funciona mesmo com parcelas pagas (não passa pela regra do editar).
 - **Pontos:** "Paguei" até o fim do dia do vencimento → +10 para o devedor.
 
 ### Contratos: tarefas ([#15](https://github.com/maiocacedo/tds-projetofinal/issues/15))
