@@ -37,6 +37,7 @@ public class BasicSecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(basicEntryPoint).accessDeniedHandler(handlers))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/password-reset", "/api/auth/password-reset/confirm").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated());
         return http.build();
