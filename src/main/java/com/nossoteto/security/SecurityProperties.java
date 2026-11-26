@@ -2,6 +2,7 @@ package com.nossoteto.security;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.boot.context.properties.bind.Name;
 
 import java.time.Duration;
 import java.util.List;
@@ -16,10 +17,15 @@ public record SecurityProperties(
 
     public record Cookie(@DefaultValue("false") boolean secure) {}
 
-    public record Client(String clientId, String clientSecret, Set<String> scopes) {
+    public record Client(
+            String clientId,
+            String clientSecret,
+            Set<String> scopes,
+            @Name("public") @DefaultValue("false") boolean publicClient) {
         @Override
         public String toString() {
-            return "Client[clientId=" + clientId + ", clientSecret=******, scopes=" + scopes + "]";
+            return "Client[clientId=" + clientId + ", clientSecret=******, scopes=" + scopes
+                    + ", publicClient=" + publicClient + "]";
         }
     }
 }

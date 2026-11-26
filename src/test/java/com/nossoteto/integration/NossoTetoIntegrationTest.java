@@ -335,9 +335,8 @@ class NossoTetoIntegrationTest {
 
     private String loginUser(String email, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/oauth/token")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
-                                .httpBasic("nosso-teto-web", "web-test-secret"))
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .param("grant_type", "password")
                         .param("username", email)
                         .param("password", password))

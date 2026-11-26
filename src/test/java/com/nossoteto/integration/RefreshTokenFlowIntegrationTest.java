@@ -48,15 +48,18 @@ class RefreshTokenFlowIntegrationTest {
     }
 
     private MvcResult passwordLogin() throws Exception {
-        return mockMvc.perform(post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
+        return mockMvc.perform(post("/oauth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .param("grant_type", "password").param("username", email).param("password", "senha123"))
                 .andExpect(status().isOk()).andReturn();
     }
 
     private org.springframework.test.web.servlet.ResultActions refresh(Cookie cookie) throws Exception {
-        var req = post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED).param("grant_type", "refresh_token");
+        var req = post("/oauth/token")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("client_id", "nosso-teto-web")
+                .param("grant_type", "refresh_token");
         if (cookie != null) req.cookie(cookie);
         return mockMvc.perform(req);
     }
@@ -98,8 +101,9 @@ class RefreshTokenFlowIntegrationTest {
     @Test
     void refreshTokenInBodyWithoutCookieIsIgnoredAndRejected() throws Exception {
         Cookie cookie = passwordLogin().getResponse().getCookie("refresh_token");
-        mockMvc.perform(post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
+        mockMvc.perform(post("/oauth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .param("grant_type", "refresh_token")
                         .param("refresh_token", cookie.getValue()))
                 .andExpect(status().isBadRequest())
@@ -122,8 +126,9 @@ class RefreshTokenFlowIntegrationTest {
 
     @Test
     void refreshPreservesOriginalScopeAndRereadsPermissionsFromDatabase() throws Exception {
-        MvcResult login = mockMvc.perform(post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
+        MvcResult login = mockMvc.perform(post("/oauth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .param("grant_type", "password")
                         .param("username", email)
                         .param("password", "senha123")
@@ -139,8 +144,9 @@ class RefreshTokenFlowIntegrationTest {
             userRepository.save(user);
         });
 
-        MvcResult refreshed = mockMvc.perform(post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
+        MvcResult refreshed = mockMvc.perform(post("/oauth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .param("grant_type", "refresh_token")
                         .param("scope", "read write")
                         .cookie(cookie))
@@ -161,7 +167,9 @@ class RefreshTokenFlowIntegrationTest {
     void logoutRevokesFamilyAndClearsCookie() throws Exception {
         Cookie cookie = passwordLogin().getResponse().getCookie("refresh_token");
         MvcResult out = mockMvc.perform(delete("/oauth/token/revoke")
-                        .with(httpBasic("nosso-teto-web", "web-test-secret")).cookie(cookie))
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .content("client_id=nosso-teto-web")
+                        .cookie(cookie))
                 .andExpect(status().isNoContent())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andReturn();
@@ -171,10 +179,14 @@ class RefreshTokenFlowIntegrationTest {
 
     @Test
     void logoutIsIdempotentAndRequiresClientAuth() throws Exception {
-        mockMvc.perform(delete("/oauth/token/revoke").with(httpBasic("nosso-teto-web", "web-test-secret")))
+        mockMvc.perform(delete("/oauth/token/revoke")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .content("client_id=nosso-teto-web"))
                 .andExpect(status().isNoContent());
         mockMvc.perform(delete("/oauth/token/revoke"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error").value("invalid_client"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist("WWW-Authenticate"))
+                .andExpect(jsonPath("$.error").value("invalid_client"));
     }
 
     @Test
@@ -193,14 +205,15 @@ class RefreshTokenFlowIntegrationTest {
     void refreshAndRevokeRejectQueryStringWithInvalidRequest() throws Exception {
         Cookie cookie = passwordLogin().getResponse().getCookie("refresh_token");
         mockMvc.perform(post("/oauth/token?grant_type=refresh_token")
-                        .with(httpBasic("nosso-teto-web", "web-test-secret"))
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .cookie(cookie))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("invalid_request"));
 
         mockMvc.perform(delete("/oauth/token/revoke?token=abc")
-                        .with(httpBasic("nosso-teto-web", "web-test-secret"))
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .content("client_id=nosso-teto-web")
                         .cookie(cookie))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("invalid_request"));
