@@ -16,6 +16,10 @@ public class ExpenseResponse {
     private boolean hasAttachment;
     private SplitType splitType;
     private List<ExpenseSplitDto> splits;
+    private UserRefDto paidBy;
+    private String createdById;
+    private Integer recurringDay;
+    private Boolean recurrenceActive;
 
     public ExpenseResponse() {}
 
@@ -42,4 +46,16 @@ public class ExpenseResponse {
 
     public List<ExpenseSplitDto> getSplits() { return splits; }
     public void setSplits(List<ExpenseSplitDto> splits) { this.splits = splits; }
+
+    public UserRefDto getPaidBy() { return paidBy; }
+    public void setPaidBy(UserRefDto paidBy) { this.paidBy = paidBy; }
+
+    public String getCreatedById() { return createdById; }
+    public void setCreatedById(String createdById) { this.createdById = createdById; }
+
+    public Integer getRecurringDay() { return recurringDay; }
+    public void setRecurringDay(Integer recurringDay) { this.recurringDay = recurringDay; }
+
+    public Boolean getRecurrenceActive() { return recurrenceActive; }
+    public void setRecurrenceActive(Boolean recurrenceActive) { this.recurrenceActive = recurrenceActive; }
 }

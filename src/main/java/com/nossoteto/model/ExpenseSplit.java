@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "expense_splits")
@@ -29,6 +30,18 @@ public class ExpenseSplit {
     @Column(name = "is_paid", nullable = false)
     private Boolean isPaid = false;
 
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
+    @Column(name = "received_confirmed_at")
+    private LocalDateTime receivedConfirmedAt;
+
+    @Column(name = "reopened_by_id")
+    private String reopenedById;
+
+    @Column(name = "reopened_at")
+    private LocalDateTime reopenedAt;
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -46,4 +59,16 @@ public class ExpenseSplit {
 
     public Boolean getIsPaid() { return isPaid; }
     public void setIsPaid(Boolean isPaid) { this.isPaid = isPaid; }
+
+    public LocalDateTime getPaidAt() { return paidAt; }
+    public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
+
+    public LocalDateTime getReceivedConfirmedAt() { return receivedConfirmedAt; }
+    public void setReceivedConfirmedAt(LocalDateTime receivedConfirmedAt) { this.receivedConfirmedAt = receivedConfirmedAt; }
+
+    public String getReopenedById() { return reopenedById; }
+    public void setReopenedById(String reopenedById) { this.reopenedById = reopenedById; }
+
+    public LocalDateTime getReopenedAt() { return reopenedAt; }
+    public void setReopenedAt(LocalDateTime reopenedAt) { this.reopenedAt = reopenedAt; }
 }

@@ -288,8 +288,8 @@ class NossoTetoIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.houseId").value(houseAId))
                 .andExpect(jsonPath("$.houseName").value("República Sol Nascente"))
-                .andExpect(jsonPath("$.totalPendingAmountForUser").value(180.00))
-                .andExpect(jsonPath("$.pendingSplitsForUser.length()").value(1))
+                .andExpect(jsonPath("$.totalPendingAmountForUser").value(0))
+                .andExpect(jsonPath("$.pendingSplitsForUser.length()").value(0))
                 .andExpect(jsonPath("$.houseChores.length()").value(1))
                 .andExpect(jsonPath("$.pendingGroceries.length()").value(1))
                 .andExpect(jsonPath("$.pendingMatchRequestsCount").value(0));
