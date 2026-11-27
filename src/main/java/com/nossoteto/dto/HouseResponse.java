@@ -21,6 +21,7 @@ public class HouseResponse {
     private Boolean hasFurniture;
     private VotingRule votingRule;
     private Boolean isAcceptingMatches;
+    private Integer vacancies;
     private Integer compatibilityScore;
     private List<HouseMemberSummaryDto> members;
 
@@ -42,6 +43,7 @@ public class HouseResponse {
         response.setHasFurniture(house.getHasFurniture());
         response.setVotingRule(house.getVotingRule());
         response.setIsAcceptingMatches(house.getIsAcceptingMatches());
+        response.setVacancies(house.getVacancies());
         response.setCompatibilityScore(compatibilityScore);
         response.setMembers(members);
         return response;
@@ -85,6 +87,9 @@ public class HouseResponse {
 
     public Boolean getIsAcceptingMatches() { return isAcceptingMatches; }
     public void setIsAcceptingMatches(Boolean isAcceptingMatches) { this.isAcceptingMatches = isAcceptingMatches; }
+
+    public Integer getVacancies() { return vacancies; }
+    public void setVacancies(Integer vacancies) { this.vacancies = vacancies; }
 
     public Integer getCompatibilityScore() { return compatibilityScore; }
     public void setCompatibilityScore(Integer compatibilityScore) { this.compatibilityScore = compatibilityScore; }

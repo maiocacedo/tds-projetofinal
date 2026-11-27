@@ -43,6 +43,9 @@ public class CreateHouseRequest {
     @JsonAlias("aceitandoMatches")
     private Boolean isAcceptingMatches;
 
+    @JsonAlias("vagas")
+    private Integer vacancies;
+
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
@@ -78,4 +81,7 @@ public class CreateHouseRequest {
 
     public Boolean getIsAcceptingMatches() { return isAcceptingMatches; }
     public void setIsAcceptingMatches(Boolean isAcceptingMatches) { this.isAcceptingMatches = isAcceptingMatches; }
+
+    public Integer getVacancies() { return vacancies; }
+    public void setVacancies(Integer vacancies) { this.vacancies = vacancies; }
 }

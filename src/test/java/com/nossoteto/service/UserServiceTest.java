@@ -240,4 +240,47 @@ class UserServiceTest {
         dtoHigh.setVisitorTolerance(6);
         assertThrows(BusinessRuleException.class, () -> userService.updateProfile("user-1", dtoHigh));
     }
+
+    // ---------- B5: boas-vindas ----------
+
+    @Test
+    void getCurrentUserShouldExposePendingWelcome() {
+        User user = new User();
+        user.setId("user-1");
+        user.setPendingWelcome(true);
+
+        when(houseAccessValidator.requireAuthenticatedUser("user-1")).thenReturn(user);
+        when(userProfileRepository.findById("user-1")).thenReturn(Optional.empty());
+        when(pointService.getUserPointsSummary("user-1")).thenReturn(new PointsSummaryDto(0, 0));
+
+        UserMeResponse response = userService.getCurrentUser("user-1");
+
+        assertTrue(response.isPendingWelcome());
+    }
+
+    @Test
+    void getCurrentUserShouldTreatNullPendingWelcomeAsFalse() {
+        User user = new User();
+        user.setId("user-1");
+        user.setPendingWelcome(null);
+
+        when(houseAccessValidator.requireAuthenticatedUser("user-1")).thenReturn(user);
+        when(userProfileRepository.findById("user-1")).thenReturn(Optional.empty());
+        when(pointService.getUserPointsSummary("user-1")).thenReturn(new PointsSummaryDto(0, 0));
+
+        assertFalse(userService.getCurrentUser("user-1").isPendingWelcome());
+    }
+
+    @Test
+    void acknowledgeWelcomeShouldClearPendingWelcomeAndSave() {
+        User user = new User();
+        user.setId("user-1");
+        user.setPendingWelcome(true);
+        when(houseAccessValidator.requireAuthenticatedUser("user-1")).thenReturn(user);
+
+        userService.acknowledgeWelcome("user-1");
+
+        assertFalse(user.getPendingWelcome());
+        verify(userRepository).save(user);
+    }
 }

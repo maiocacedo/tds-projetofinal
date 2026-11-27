@@ -1,11 +1,16 @@
 package com.nossoteto.service;
 
+import com.nossoteto.dto.CandidateCardDto;
 import com.nossoteto.dto.CreateMatchRequestDto;
 import com.nossoteto.dto.MatchRequestResponse;
+import com.nossoteto.dto.MyMatchRequestDto;
 import com.nossoteto.dto.UserProfileDto;
 import com.nossoteto.dto.VoteMatchResponse;
 import com.nossoteto.dto.VoteRequestDto;
+import com.nossoteto.dto.VoterSummaryDto;
 import com.nossoteto.exception.BusinessRuleException;
+import com.nossoteto.exception.ConflictException;
+import com.nossoteto.exception.ForbiddenOperationException;
 import com.nossoteto.exception.ResourceNotFoundException;
 import com.nossoteto.model.House;
 import com.nossoteto.model.MatchRequest;
@@ -42,6 +47,7 @@ public class MatchService {
     private final CompatibilityCalculator compatibilityCalculator;
     private final VotingEvaluator votingEvaluator;
     private final ResidenceHistoryService residenceHistoryService;
+    private final PointService pointService;
 
     public MatchService(MatchRequestRepository matchRequestRepository,
                         MatchVoteRepository matchVoteRepository,
@@ -51,7 +57,8 @@ public class MatchService {
                         HouseAccessValidator houseAccessValidator,
                         CompatibilityCalculator compatibilityCalculator,
                         VotingEvaluator votingEvaluator,
-                        ResidenceHistoryService residenceHistoryService) {
+                        ResidenceHistoryService residenceHistoryService,
+                        PointService pointService) {
         this.matchRequestRepository = matchRequestRepository;
         this.matchVoteRepository = matchVoteRepository;
         this.houseRepository = houseRepository;
@@ -61,6 +68,7 @@ public class MatchService {
         this.compatibilityCalculator = compatibilityCalculator;
         this.votingEvaluator = votingEvaluator;
         this.residenceHistoryService = residenceHistoryService;
+        this.pointService = pointService;
     }
 
     @Transactional
@@ -74,8 +82,10 @@ public class MatchService {
         House house = houseRepository.findById(houseId)
                 .orElseThrow(() -> new ResourceNotFoundException("House not found: " + houseId));
 
-        if (!Boolean.TRUE.equals(house.getIsAcceptingMatches())) {
-            throw new BusinessRuleException("House is not accepting matches");
+        // Paused and full are independent settings, but either one closes the door to new requests.
+        if (!Boolean.TRUE.equals(house.getIsAcceptingMatches())
+                || house.getVacancies() == null || house.getVacancies() <= 0) {
+            throw new BusinessRuleException("house is not accepting requests");
         }
 
         if (houseId.equals(user.getHouseId())) {
@@ -100,6 +110,8 @@ public class MatchService {
         return buildMatchRequestResponse(saved, user, house);
     }
 
+    // Not readOnly on purpose: B6 hooks request expiration into these reads.
+    @Transactional
     public List<MatchRequestResponse> listHouseMatchRequests(String userId, String houseId) {
         houseAccessValidator.requireHouseMember(userId, houseId);
         House house = houseRepository.findById(houseId)
@@ -107,13 +119,46 @@ public class MatchService {
 
         List<MatchRequest> requests = matchRequestRepository.findByHouseIdAndStatusOrderByCreatedAtAsc(
                 houseId, MatchStatus.PENDING);
+        List<User> residents = userRepository.findByHouseIdOrderByIdAsc(houseId);
 
         return requests.stream()
                 .map(req -> {
                     User candidate = userRepository.findById(req.getUserId()).orElse(null);
-                    return buildMatchRequestResponse(req, candidate, house);
+                    MatchRequestResponse response = buildMatchRequestResponse(req, candidate, house);
+                    enrichForResidents(response, req, candidate, residents, userId);
+                    return response;
                 })
                 .toList();
+    }
+
+    /**
+     * "Minhas solicitações": every request of the caller, any status, newest first.
+     * Not readOnly on purpose: B6 hooks request expiration into this read.
+     */
+    @Transactional
+    public List<MyMatchRequestDto> listMyMatchRequests(String userId) {
+        houseAccessValidator.requireAuthenticatedUser(userId);
+        return matchRequestRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(this::toMyMatchRequest)
+                .toList();
+    }
+
+    /**
+     * The candidate gives up on a pending request. Uses the PENDING compare-and-set so a
+     * concurrent acceptance cannot be overwritten with WITHDRAWN. Vacancies are untouched.
+     */
+    @Transactional
+    public void withdrawMatchRequest(String userId, String requestId) {
+        houseAccessValidator.requireAuthenticatedUser(userId);
+        MatchRequest request = matchRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Match request not found: " + requestId));
+        if (!request.getUserId().equals(userId)) {
+            throw new ForbiddenOperationException("only the owner can perform this action");
+        }
+        if (request.getStatus() != MatchStatus.PENDING
+                || matchRequestRepository.transitionStatusFromPending(requestId, MatchStatus.WITHDRAWN) == 0) {
+            throw new BusinessRuleException("request is not pending");
+        }
     }
 
     @Transactional
@@ -131,12 +176,14 @@ public class MatchService {
 
         House house = houseRepository.findById(matchRequest.getHouseId())
                 .orElseThrow(() -> new ResourceNotFoundException("House not found: " + matchRequest.getHouseId()));
+        String houseId = house.getId();
 
-        Set<String> memberIds = userRepository.findByHouseIdOrderByIdAsc(house.getId()).stream()
+        Set<String> memberIds = userRepository.findByHouseIdOrderByIdAsc(houseId).stream()
                 .map(User::getId)
                 .collect(Collectors.toSet());
         int totalMembers = memberIds.size();
 
+        // Upsert: a resident can change their vote while the request is PENDING.
         MatchVote matchVote = matchVoteRepository.findByRequestIdAndVoterId(requestId, voterId)
                 .orElseGet(() -> {
                     MatchVote v = new MatchVote();
@@ -161,39 +208,73 @@ public class MatchService {
         List<String> otherPendingIds = List.of();
 
         if (outcome == VotingOutcome.APPROVED) {
-            User candidate = userRepository.findById(matchRequest.getUserId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Candidate not found: " + matchRequest.getUserId()));
+            String candidateId = matchRequest.getUserId();
+            User candidate = userRepository.findById(candidateId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Candidate not found: " + candidateId));
 
             if (candidate.getHouseId() != null) {
                 // The candidate kept this request open (RF06) but joined another house meanwhile:
                 // close the request instead of silently moving them out of their current house.
+                // No vacancy is consumed here. Conditional update: never overwrite a concurrent
+                // ACCEPTED/WITHDRAWN.
+                if (matchRequestRepository.transitionStatusFromPending(requestId, MatchStatus.CANCELLED) == 0) {
+                    throw new ConflictException("request is no longer pending");
+                }
                 matchRequest.setStatus(MatchStatus.CANCELLED);
-                matchRequestRepository.save(matchRequest);
                 return buildVoteResponse(requestId, matchRequest.getStatus(), approveCount, rejectCount,
                         totalMembers, false, List.of());
             }
 
+            // First write of the acceptance. On 409 the whole transaction rolls back,
+            // including the vote saved above: the request stays PENDING.
+            reserveVacancyOrThrow(houseId);
+            if (matchRequestRepository.transitionStatusFromPending(requestId, MatchStatus.ACCEPTED) == 0) {
+                throw new ConflictException("request is no longer pending");
+            }
             matchRequest.setStatus(MatchStatus.ACCEPTED);
-            matchRequestRepository.save(matchRequest);
 
-            candidate.setHouseId(house.getId());
-            candidate.setIsHouseAdmin(false);
-            userRepository.save(candidate);
-            residenceHistoryService.recordEntry(candidate.getId(), house.getId());
+            // The bulk updates cleared the persistence context: reload instead of reusing detached
+            // entities, and never save `house` here (it would restore the old vacancy count).
+            User acceptedCandidate = userRepository.findById(candidateId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Candidate not found: " + candidateId));
+            // Re-check after the reload: under READ COMMITTED another house may have accepted the
+            // candidate concurrently. Throwing rolls back the vacancy and the status transition.
+            if (acceptedCandidate.getHouseId() != null) {
+                throw new ConflictException("candidate already belongs to a house");
+            }
+            acceptedCandidate.setHouseId(houseId);
+            acceptedCandidate.setIsHouseAdmin(false);
+            acceptedCandidate.setPendingWelcome(true);
+            userRepository.save(acceptedCandidate);
+            residenceHistoryService.recordEntry(candidateId, houseId);
 
-            otherPendingIds = matchRequestRepository.findByUserIdAndStatus(candidate.getId(), MatchStatus.PENDING)
+            otherPendingIds = matchRequestRepository.findByUserIdAndStatus(candidateId, MatchStatus.PENDING)
                     .stream()
                     .map(MatchRequest::getId)
                     .filter(id -> !id.equals(requestId))
                     .toList();
             hasOtherPending = !otherPendingIds.isEmpty();
         } else if (outcome == VotingOutcome.REJECTED) {
+            // Conditional update: never overwrite a concurrent ACCEPTED/WITHDRAWN.
+            if (matchRequestRepository.transitionStatusFromPending(requestId, MatchStatus.REJECTED) == 0) {
+                throw new ConflictException("request is no longer pending");
+            }
             matchRequest.setStatus(MatchStatus.REJECTED);
-            matchRequestRepository.save(matchRequest);
         }
 
         return buildVoteResponse(requestId, matchRequest.getStatus(), approveCount, rejectCount,
                 totalMembers, hasOtherPending, otherPendingIds);
+    }
+
+    /**
+     * Atomically takes one vacancy of the house or fails with 409. Deliberately joins the
+     * caller's transaction (no REQUIRES_NEW) so a later failure also gives the vacancy back.
+     * Reused by B6.
+     */
+    void reserveVacancyOrThrow(String houseId) {
+        if (houseRepository.decrementVacancyIfAvailable(houseId) == 0) {
+            throw new ConflictException("house has no available vacancies");
+        }
     }
 
     private VoteMatchResponse buildVoteResponse(String requestId, MatchStatus status, int approveCount,
@@ -212,13 +293,52 @@ public class MatchService {
 
     @Transactional
     public Map<String, Object> cancelOtherPendingRequests(String userId) {
-        houseAccessValidator.requireAuthenticatedUser(userId);
+        User user = houseAccessValidator.requireAuthenticatedUser(userId);
         List<MatchRequest> pending = matchRequestRepository.findByUserIdAndStatus(userId, MatchStatus.PENDING);
         for (MatchRequest req : pending) {
             req.setStatus(MatchStatus.CANCELLED);
         }
         matchRequestRepository.saveAll(pending);
+        // Answering "what about your other requests?" also dismisses the welcome screen.
+        user.setPendingWelcome(false);
+        userRepository.save(user);
         return Map.of("cancelledCount", pending.size());
+    }
+
+    private MyMatchRequestDto toMyMatchRequest(MatchRequest req) {
+        String houseName = houseRepository.findById(req.getHouseId()).map(House::getName).orElse(null);
+        // Only current residents vote; once accepted, the requester lives there but is not a voter.
+        Set<String> voterIds = userRepository.findByHouseIdOrderByIdAsc(req.getHouseId()).stream()
+                .map(User::getId)
+                .filter(id -> !id.equals(req.getUserId()))
+                .collect(Collectors.toSet());
+        int votesCast = (int) matchVoteRepository.findByRequestId(req.getId()).stream()
+                .filter(v -> voterIds.contains(v.getVoterId()))
+                .count();
+        return new MyMatchRequestDto(req.getId(), req.getHouseId(), houseName, req.getStatus(),
+                req.getCreatedAt(), votesCast, voterIds.size(), null);
+    }
+
+    private void enrichForResidents(MatchRequestResponse response, MatchRequest req, User candidate,
+                                    List<User> residents, String callerId) {
+        Map<String, VoteType> votesByVoter = matchVoteRepository.findByRequestId(req.getId()).stream()
+                .collect(Collectors.toMap(MatchVote::getVoterId, MatchVote::getVote, (a, b) -> b));
+
+        // Who voted, never how: the direction stays private to each voter.
+        List<VoterSummaryDto> voters = residents.stream()
+                .filter(resident -> votesByVoter.containsKey(resident.getId()))
+                .map(resident -> new VoterSummaryDto(resident.getId(), resident.getName()))
+                .toList();
+        VoteType myVote = votesByVoter.get(callerId);
+
+        response.setCandidate(new CandidateCardDto(
+                req.getUserId(),
+                candidate != null ? candidate.getName() : null,
+                response.getCompatibilityScore(),
+                pointService.getUserPointsSummary(req.getUserId()).total(),
+                residenceHistoryService.calculateTotalResidenceMonths(req.getUserId())));
+        response.setVoters(voters);
+        response.setMyVote(myVote != null ? myVote.name() : null);
     }
 
     private MatchRequestResponse buildMatchRequestResponse(MatchRequest req, User candidate, House house) {

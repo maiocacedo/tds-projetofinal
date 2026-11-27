@@ -4,5 +4,7 @@ public enum MatchStatus {
     PENDING,
     ACCEPTED,
     REJECTED,
-    CANCELLED
+    CANCELLED,
+    // Candidate gave up on their own request (CANCELLED is reserved for system/house actions).
+    WITHDRAWN
 }

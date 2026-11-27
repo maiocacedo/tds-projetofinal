@@ -1,10 +1,15 @@
 package com.nossoteto.service;
 
 import com.nossoteto.dto.CreateMatchRequestDto;
+import com.nossoteto.dto.CandidateCardDto;
 import com.nossoteto.dto.MatchRequestResponse;
+import com.nossoteto.dto.MyMatchRequestDto;
+import com.nossoteto.dto.PointsSummaryDto;
+import com.nossoteto.dto.VoterSummaryDto;
 import com.nossoteto.dto.VoteMatchResponse;
 import com.nossoteto.dto.VoteRequestDto;
 import com.nossoteto.exception.BusinessRuleException;
+import com.nossoteto.exception.ConflictException;
 import com.nossoteto.exception.ForbiddenOperationException;
 import com.nossoteto.exception.ResourceNotFoundException;
 import com.nossoteto.model.House;
@@ -58,6 +63,9 @@ class MatchServiceTest {
     @Mock
     private ResidenceHistoryService residenceHistoryService;
 
+    @Mock
+    private PointService pointService;
+
     private HouseAccessValidator houseAccessValidator;
     private CompatibilityCalculator compatibilityCalculator;
     private VotingEvaluator votingEvaluator;
@@ -77,7 +85,8 @@ class MatchServiceTest {
                 houseAccessValidator,
                 compatibilityCalculator,
                 votingEvaluator,
-                residenceHistoryService
+                residenceHistoryService,
+                pointService
         );
     }
 
@@ -208,6 +217,7 @@ class MatchServiceTest {
                 .thenReturn(List.of(req));
         when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
         when(userProfileRepository.findById("candidate-1")).thenReturn(Optional.of(profile));
+        when(pointService.getUserPointsSummary("candidate-1")).thenReturn(new PointsSummaryDto(30, 10));
 
         List<MatchRequestResponse> list = matchService.listHouseMatchRequests("member-1", "house-1");
 
@@ -266,6 +276,8 @@ class MatchServiceTest {
         when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
         when(matchRequestRepository.findByUserIdAndStatus("candidate-1", MatchStatus.PENDING))
                 .thenReturn(List.of(otherReq));
+        when(houseRepository.decrementVacancyIfAvailable("house-1")).thenReturn(1);
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.ACCEPTED)).thenReturn(1);
 
         VoteRequestDto voteDto = new VoteRequestDto();
         voteDto.setVote("APROVAR");
@@ -281,8 +293,13 @@ class MatchServiceTest {
 
         assertEquals("house-1", candidate.getHouseId());
         assertFalse(candidate.getIsHouseAdmin());
+        assertTrue(candidate.getPendingWelcome());
         verify(userRepository).save(candidate);
-        verify(matchRequestRepository).save(req);
+        verify(houseRepository).decrementVacancyIfAvailable("house-1");
+        verify(matchRequestRepository).transitionStatusFromPending("req-1", MatchStatus.ACCEPTED);
+        verify(matchRequestRepository, never()).save(any(MatchRequest.class));
+        // The atomic decrement already updated the row: saving the stale House would undo it.
+        verify(houseRepository, never()).save(any(House.class));
         verify(residenceHistoryService).recordEntry("candidate-1", "house-1");
     }
 
@@ -316,6 +333,7 @@ class MatchServiceTest {
         when(matchVoteRepository.findByRequestIdAndVoterId("req-1", "voter-1")).thenReturn(Optional.empty());
         when(matchVoteRepository.save(any(MatchVote.class))).thenReturn(rejectVote);
         when(matchVoteRepository.findByRequestId("req-1")).thenReturn(List.of(rejectVote));
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.REJECTED)).thenReturn(1);
 
         VoteRequestDto voteDto = new VoteRequestDto();
         voteDto.setVote("REJEITAR");
@@ -326,7 +344,8 @@ class MatchServiceTest {
         assertEquals(0, response.getApproveVotes());
         assertEquals(1, response.getRejectVotes());
         assertEquals(3, response.getTotalHouseMembers());
-        verify(matchRequestRepository).save(req);
+        verify(matchRequestRepository).transitionStatusFromPending("req-1", MatchStatus.REJECTED);
+        verify(matchRequestRepository, never()).save(any(MatchRequest.class));
         verifyNoInteractions(residenceHistoryService);
     }
 
@@ -366,6 +385,8 @@ class MatchServiceTest {
         when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
         when(matchRequestRepository.findByUserIdAndStatus("candidate-1", MatchStatus.PENDING))
                 .thenReturn(List.of());
+        when(houseRepository.decrementVacancyIfAvailable("house-1")).thenReturn(1);
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.ACCEPTED)).thenReturn(1);
 
         VoteRequestDto voteDto = new VoteRequestDto();
         voteDto.setVote("APPROVE");
@@ -404,6 +425,23 @@ class MatchServiceTest {
         assertEquals(MatchStatus.CANCELLED, r1.getStatus());
         assertEquals(MatchStatus.CANCELLED, r2.getStatus());
         verify(matchRequestRepository).saveAll(List.of(r1, r2));
+    }
+
+    @Test
+    void cancelOtherPendingRequestsShouldAlsoClearPendingWelcome() {
+        User user = new User();
+        user.setId("candidate-1");
+        user.setHouseId("house-1");
+        user.setPendingWelcome(true);
+
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(user));
+        when(matchRequestRepository.findByUserIdAndStatus("candidate-1", MatchStatus.PENDING))
+                .thenReturn(List.of());
+
+        matchService.cancelOtherPendingRequests("candidate-1");
+
+        assertFalse(user.getPendingWelcome());
+        verify(userRepository).save(user);
     }
 
     @Test
@@ -456,6 +494,7 @@ class MatchServiceTest {
         when(matchVoteRepository.findByRequestIdAndVoterId("req-1", "voter-1")).thenReturn(Optional.empty());
         when(matchVoteRepository.findByRequestId("req-1")).thenReturn(List.of(vote));
         when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.CANCELLED)).thenReturn(1);
 
         VoteRequestDto voteDto = new VoteRequestDto();
         voteDto.setVote("APROVAR");
@@ -466,6 +505,103 @@ class MatchServiceTest {
         assertEquals(MatchStatus.CANCELLED, req.getStatus());
         assertEquals("house-A", candidate.getHouseId());
         assertTrue(candidate.getIsHouseAdmin());
+        assertFalse(candidate.getPendingWelcome());
+        verify(userRepository, never()).save(any());
+        verify(houseRepository, never()).decrementVacancyIfAvailable(any());
+        verify(matchRequestRepository).transitionStatusFromPending("req-1", MatchStatus.CANCELLED);
+        verify(matchRequestRepository, never()).transitionStatusFromPending("req-1", MatchStatus.ACCEPTED);
+        verify(matchRequestRepository, never()).save(any(MatchRequest.class));
+        verifyNoInteractions(residenceHistoryService);
+    }
+
+    @Test
+    void cancelBranchShouldThrowConflictWhenRequestStoppedBeingPendingConcurrently() {
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        User voter = member("voter-1");
+        User candidate = named("candidate-1", "Candidato", "house-A");
+        House house = openHouse("house-1", 1, VotingRule.UNANIMITY);
+
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+        when(userRepository.findById("voter-1")).thenReturn(Optional.of(voter));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of(voter));
+        when(matchVoteRepository.findByRequestIdAndVoterId("req-1", "voter-1")).thenReturn(Optional.empty());
+        when(matchVoteRepository.findByRequestId("req-1"))
+                .thenReturn(List.of(matchVote("req-1", "voter-1", VoteType.APPROVE)));
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
+        // A concurrent ACCEPTED/WITHDRAWN already closed the request.
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.CANCELLED)).thenReturn(0);
+
+        VoteRequestDto voteDto = new VoteRequestDto();
+        voteDto.setVote("APPROVE");
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> matchService.voteOnMatchRequest("voter-1", "req-1", voteDto));
+        assertEquals("request is no longer pending", ex.getMessage());
+        verify(matchRequestRepository).transitionStatusFromPending("req-1", MatchStatus.CANCELLED);
+        verify(matchRequestRepository, never()).save(any(MatchRequest.class));
+        verify(houseRepository, never()).decrementVacancyIfAvailable(any());
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(residenceHistoryService);
+    }
+
+    @Test
+    void rejectBranchShouldThrowConflictWhenRequestStoppedBeingPendingConcurrently() {
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        User voter = member("voter-1");
+        House house = openHouse("house-1", 1, VotingRule.UNANIMITY);
+
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+        when(userRepository.findById("voter-1")).thenReturn(Optional.of(voter));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of(voter, member("voter-2")));
+        when(matchVoteRepository.findByRequestIdAndVoterId("req-1", "voter-1")).thenReturn(Optional.empty());
+        when(matchVoteRepository.findByRequestId("req-1"))
+                .thenReturn(List.of(matchVote("req-1", "voter-1", VoteType.REJECT)));
+        // A concurrent ACCEPTED/WITHDRAWN already closed the request.
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.REJECTED)).thenReturn(0);
+
+        VoteRequestDto voteDto = new VoteRequestDto();
+        voteDto.setVote("REJECT");
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> matchService.voteOnMatchRequest("voter-1", "req-1", voteDto));
+        assertEquals("request is no longer pending", ex.getMessage());
+        verify(matchRequestRepository).transitionStatusFromPending("req-1", MatchStatus.REJECTED);
+        verify(matchRequestRepository, never()).save(any(MatchRequest.class));
+        verify(houseRepository, never()).decrementVacancyIfAvailable(any());
+    }
+
+    @Test
+    void approvalShouldThrowConflictWhenCandidateJoinedAnotherHouseAfterReload() {
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        User voter = member("voter-1");
+        User candidateBefore = named("candidate-1", "Candidato", null);
+        // Reloaded after the bulk updates: another house accepted them concurrently (READ COMMITTED).
+        User candidateAfterReload = named("candidate-1", "Candidato", "house-other");
+        House house = openHouse("house-1", 1, VotingRule.UNANIMITY);
+
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+        when(userRepository.findById("voter-1")).thenReturn(Optional.of(voter));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of(voter));
+        when(matchVoteRepository.findByRequestIdAndVoterId("req-1", "voter-1")).thenReturn(Optional.empty());
+        when(matchVoteRepository.findByRequestId("req-1"))
+                .thenReturn(List.of(matchVote("req-1", "voter-1", VoteType.APPROVE)));
+        when(userRepository.findById("candidate-1"))
+                .thenReturn(Optional.of(candidateBefore), Optional.of(candidateAfterReload));
+        when(houseRepository.decrementVacancyIfAvailable("house-1")).thenReturn(1);
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.ACCEPTED)).thenReturn(1);
+
+        VoteRequestDto voteDto = new VoteRequestDto();
+        voteDto.setVote("APPROVE");
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> matchService.voteOnMatchRequest("voter-1", "req-1", voteDto));
+        assertEquals("candidate already belongs to a house", ex.getMessage());
+        // The exception rolls back the vacancy and the ACCEPTED transition; the candidate is untouched.
+        assertEquals("house-other", candidateAfterReload.getHouseId());
+        assertFalse(candidateAfterReload.getPendingWelcome());
         verify(userRepository, never()).save(any());
         verifyNoInteractions(residenceHistoryService);
     }
@@ -509,5 +645,397 @@ class MatchServiceTest {
         assertEquals(MatchStatus.PENDING, response.getStatus());
         assertEquals(1, response.getApproveVotes());
         assertEquals(2, response.getTotalHouseMembers());
+    }
+
+    // ---------- B5: vagas, aceite atômico, minhas solicitações, desistência, card, voto trocável ----------
+
+    private House openHouse(String id, int vacancies, VotingRule rule) {
+        House house = new House();
+        house.setId(id);
+        house.setName("Casa " + id);
+        house.setIsAcceptingMatches(true);
+        house.setVacancies(vacancies);
+        house.setVotingRule(rule);
+        return house;
+    }
+
+    private MatchRequest pendingRequest(String id, String userId, String houseId) {
+        MatchRequest req = new MatchRequest();
+        req.setId(id);
+        req.setUserId(userId);
+        req.setHouseId(houseId);
+        req.setStatus(MatchStatus.PENDING);
+        req.setCreatedAt(LocalDateTime.now());
+        return req;
+    }
+
+    private MatchVote matchVote(String requestId, String voterId, VoteType type) {
+        MatchVote v = new MatchVote();
+        v.setId("v-" + voterId);
+        v.setRequestId(requestId);
+        v.setVoterId(voterId);
+        v.setVote(type);
+        return v;
+    }
+
+    private User named(String id, String name, String houseId) {
+        User user = new User();
+        user.setId(id);
+        user.setName(name);
+        user.setHouseId(houseId);
+        return user;
+    }
+
+    @Test
+    void newEntitiesShouldDefaultToOneVacancyAndNoPendingWelcome() {
+        assertEquals(1, new House().getVacancies());
+        assertFalse(new User().getPendingWelcome());
+    }
+
+    @Test
+    void createMatchRequestShouldRefuseHouseWithoutVacancies() {
+        User candidate = named("candidate-1", "Carlos", null);
+        House house = openHouse("house-1", 0, VotingRule.UNANIMITY);
+
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+
+        CreateMatchRequestDto dto = new CreateMatchRequestDto();
+        dto.setHouseId("house-1");
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> matchService.createMatchRequest("candidate-1", dto));
+        assertEquals("house is not accepting requests", ex.getMessage());
+        verify(matchRequestRepository, never()).save(any());
+    }
+
+    @Test
+    void createMatchRequestShouldRefusePausedHouseEvenWithVacancies() {
+        User candidate = named("candidate-1", "Carlos", null);
+        House house = openHouse("house-1", 3, VotingRule.UNANIMITY);
+        house.setIsAcceptingMatches(false);
+
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+
+        CreateMatchRequestDto dto = new CreateMatchRequestDto();
+        dto.setHouseId("house-1");
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> matchService.createMatchRequest("candidate-1", dto));
+        assertEquals("house is not accepting requests", ex.getMessage());
+    }
+
+    @Test
+    void approvalShouldThrowConflictAndNotAcceptCandidateWhenNoVacancyLeft() {
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        User voter = member("voter-1");
+        User candidate = named("candidate-1", "Candidato", null);
+        House house = openHouse("house-1", 0, VotingRule.UNANIMITY);
+
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+        when(userRepository.findById("voter-1")).thenReturn(Optional.of(voter));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of(voter));
+        when(matchVoteRepository.findByRequestIdAndVoterId("req-1", "voter-1")).thenReturn(Optional.empty());
+        when(matchVoteRepository.findByRequestId("req-1"))
+                .thenReturn(List.of(matchVote("req-1", "voter-1", VoteType.APPROVE)));
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
+        when(houseRepository.decrementVacancyIfAvailable("house-1")).thenReturn(0);
+
+        VoteRequestDto voteDto = new VoteRequestDto();
+        voteDto.setVote("APPROVE");
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> matchService.voteOnMatchRequest("voter-1", "req-1", voteDto));
+        assertEquals("house has no available vacancies", ex.getMessage());
+
+        assertNull(candidate.getHouseId());
+        assertFalse(candidate.getPendingWelcome());
+        verify(matchRequestRepository, never()).transitionStatusFromPending(any(), any());
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(residenceHistoryService);
+    }
+
+    @Test
+    void approvalShouldThrowConflictWhenRequestWasClosedConcurrently() {
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        User voter = member("voter-1");
+        User candidate = named("candidate-1", "Candidato", null);
+        House house = openHouse("house-1", 1, VotingRule.UNANIMITY);
+
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+        when(userRepository.findById("voter-1")).thenReturn(Optional.of(voter));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of(voter));
+        when(matchVoteRepository.findByRequestIdAndVoterId("req-1", "voter-1")).thenReturn(Optional.empty());
+        when(matchVoteRepository.findByRequestId("req-1"))
+                .thenReturn(List.of(matchVote("req-1", "voter-1", VoteType.APPROVE)));
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
+        when(houseRepository.decrementVacancyIfAvailable("house-1")).thenReturn(1);
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.ACCEPTED)).thenReturn(0);
+
+        VoteRequestDto voteDto = new VoteRequestDto();
+        voteDto.setVote("APPROVE");
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> matchService.voteOnMatchRequest("voter-1", "req-1", voteDto));
+        assertEquals("request is no longer pending", ex.getMessage());
+        assertNull(candidate.getHouseId());
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(residenceHistoryService);
+    }
+
+    @Test
+    void reserveVacancyOrThrowShouldPassOnlyWhenARowWasDecremented() {
+        when(houseRepository.decrementVacancyIfAvailable("house-1")).thenReturn(1);
+        assertDoesNotThrow(() -> matchService.reserveVacancyOrThrow("house-1"));
+
+        when(houseRepository.decrementVacancyIfAvailable("house-2")).thenReturn(0);
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> matchService.reserveVacancyOrThrow("house-2"));
+        assertEquals("house has no available vacancies", ex.getMessage());
+    }
+
+    @Test
+    void voteSwapFromRejectToApproveShouldUpsertAndReevaluateUnderMajority() {
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        User voter1 = member("voter-1");
+        User candidate = named("candidate-1", "Candidato", null);
+        House house = openHouse("house-1", 2, VotingRule.MAJORITY);
+
+        // voter-1 had rejected earlier; voter-2 approved. 3 residents.
+        MatchVote previous = matchVote("req-1", "voter-1", VoteType.REJECT);
+        MatchVote other = matchVote("req-1", "voter-2", VoteType.APPROVE);
+
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+        when(userRepository.findById("voter-1")).thenReturn(Optional.of(voter1));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1"))
+                .thenReturn(List.of(voter1, member("voter-2"), member("voter-3")));
+        when(matchVoteRepository.findByRequestIdAndVoterId("req-1", "voter-1")).thenReturn(Optional.of(previous));
+        when(matchVoteRepository.findByRequestId("req-1")).thenReturn(List.of(previous, other));
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
+        when(houseRepository.decrementVacancyIfAvailable("house-1")).thenReturn(1);
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.ACCEPTED)).thenReturn(1);
+        when(matchRequestRepository.findByUserIdAndStatus("candidate-1", MatchStatus.PENDING)).thenReturn(List.of());
+
+        VoteRequestDto voteDto = new VoteRequestDto();
+        voteDto.setVote("APPROVE");
+
+        VoteMatchResponse response = matchService.voteOnMatchRequest("voter-1", "req-1", voteDto);
+
+        ArgumentCaptor<MatchVote> saved = ArgumentCaptor.forClass(MatchVote.class);
+        verify(matchVoteRepository).save(saved.capture());
+        assertSame(previous, saved.getValue(), "the existing vote must be updated, not duplicated");
+        assertEquals(VoteType.APPROVE, previous.getVote());
+        assertEquals(MatchStatus.ACCEPTED, response.getStatus());
+        assertEquals(2, response.getApproveVotes());
+        assertEquals(0, response.getRejectVotes());
+        assertTrue(candidate.getPendingWelcome());
+    }
+
+    @Test
+    void voteSwapFromApproveToRejectShouldReevaluateUnderUnanimity() {
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        User voter1 = member("voter-1");
+        House house = openHouse("house-1", 1, VotingRule.UNANIMITY);
+
+        MatchVote previous = matchVote("req-1", "voter-1", VoteType.APPROVE);
+
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+        when(userRepository.findById("voter-1")).thenReturn(Optional.of(voter1));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of(voter1, member("voter-2")));
+        when(matchVoteRepository.findByRequestIdAndVoterId("req-1", "voter-1")).thenReturn(Optional.of(previous));
+        when(matchVoteRepository.findByRequestId("req-1")).thenReturn(List.of(previous));
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.REJECTED)).thenReturn(1);
+
+        VoteRequestDto voteDto = new VoteRequestDto();
+        voteDto.setVote("REJECT");
+
+        VoteMatchResponse response = matchService.voteOnMatchRequest("voter-1", "req-1", voteDto);
+
+        verify(matchVoteRepository).save(previous);
+        assertEquals(VoteType.REJECT, previous.getVote());
+        assertEquals(MatchStatus.REJECTED, response.getStatus());
+        assertEquals(0, response.getApproveVotes());
+        assertEquals(1, response.getRejectVotes());
+        verify(houseRepository, never()).decrementVacancyIfAvailable(any());
+    }
+
+    @Test
+    void listMyMatchRequestsShouldReturnAllStatusesWithVotesFromCurrentResidentsOnly() {
+        User me = named("candidate-1", "Eu", "house-2");
+        MatchRequest newest = pendingRequest("req-new", "candidate-1", "house-1");
+        MatchRequest older = pendingRequest("req-old", "candidate-1", "house-2");
+        older.setStatus(MatchStatus.ACCEPTED);
+
+        House house1 = openHouse("house-1", 1, VotingRule.UNANIMITY);
+        House house2 = openHouse("house-2", 0, VotingRule.UNANIMITY);
+
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(me));
+        when(matchRequestRepository.findByUserIdOrderByCreatedAtDesc("candidate-1"))
+                .thenReturn(List.of(newest, older));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house1));
+        when(houseRepository.findById("house-2")).thenReturn(Optional.of(house2));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1"))
+                .thenReturn(List.of(member("m-1"), member("m-2"), member("m-3")));
+        // The accepted candidate now lives in house-2 and must not count as one of its voters.
+        when(userRepository.findByHouseIdOrderByIdAsc("house-2"))
+                .thenReturn(List.of(named("m-9", "Morador", "house-2"), me));
+        when(matchVoteRepository.findByRequestId("req-new")).thenReturn(List.of(
+                matchVote("req-new", "m-1", VoteType.APPROVE),
+                matchVote("req-new", "former-1", VoteType.APPROVE)));
+        when(matchVoteRepository.findByRequestId("req-old")).thenReturn(List.of(
+                matchVote("req-old", "m-9", VoteType.APPROVE)));
+
+        List<MyMatchRequestDto> mine = matchService.listMyMatchRequests("candidate-1");
+
+        assertEquals(2, mine.size());
+        MyMatchRequestDto first = mine.get(0);
+        assertEquals("req-new", first.id());
+        assertEquals("house-1", first.houseId());
+        assertEquals("Casa house-1", first.houseName());
+        assertEquals(MatchStatus.PENDING, first.status());
+        assertNotNull(first.createdAt());
+        assertEquals(1, first.votesCast());
+        assertEquals(3, first.votersTotal());
+        assertNull(first.moveDeadline());
+
+        MyMatchRequestDto second = mine.get(1);
+        assertEquals("req-old", second.id());
+        assertEquals(MatchStatus.ACCEPTED, second.status());
+        assertEquals(1, second.votesCast());
+        assertEquals(1, second.votersTotal());
+    }
+
+    @Test
+    void withdrawShouldReturn404WhenRequestDoesNotExist() {
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(named("candidate-1", "Eu", null)));
+        when(matchRequestRepository.findById("missing")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> matchService.withdrawMatchRequest("candidate-1", "missing"));
+    }
+
+    @Test
+    void withdrawShouldReturn403WhenCallerIsNotTheOwner() {
+        when(userRepository.findById("intruder")).thenReturn(Optional.of(named("intruder", "X", null)));
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        req.setStatus(MatchStatus.REJECTED);
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+
+        ForbiddenOperationException ex = assertThrows(ForbiddenOperationException.class,
+                () -> matchService.withdrawMatchRequest("intruder", "req-1"));
+        assertEquals("only the owner can perform this action", ex.getMessage());
+        verify(matchRequestRepository, never()).transitionStatusFromPending(any(), any());
+    }
+
+    @Test
+    void withdrawShouldReturn400WhenRequestIsNotPending() {
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(named("candidate-1", "Eu", null)));
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        req.setStatus(MatchStatus.ACCEPTED);
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> matchService.withdrawMatchRequest("candidate-1", "req-1"));
+        assertEquals("request is not pending", ex.getMessage());
+        verify(matchRequestRepository, never()).transitionStatusFromPending(any(), any());
+    }
+
+    @Test
+    void withdrawShouldMarkPendingRequestAsWithdrawnWithoutTouchingVacancies() {
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(named("candidate-1", "Eu", null)));
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.WITHDRAWN)).thenReturn(1);
+
+        matchService.withdrawMatchRequest("candidate-1", "req-1");
+
+        verify(matchRequestRepository).transitionStatusFromPending("req-1", MatchStatus.WITHDRAWN);
+        verify(houseRepository, never()).decrementVacancyIfAvailable(any());
+        verify(houseRepository, never()).save(any());
+    }
+
+    @Test
+    void withdrawShouldReturn400WhenRequestStoppedBeingPendingConcurrently() {
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(named("candidate-1", "Eu", null)));
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        when(matchRequestRepository.findById("req-1")).thenReturn(Optional.of(req));
+        when(matchRequestRepository.transitionStatusFromPending("req-1", MatchStatus.WITHDRAWN)).thenReturn(0);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> matchService.withdrawMatchRequest("candidate-1", "req-1"));
+        assertEquals("request is not pending", ex.getMessage());
+    }
+
+    @Test
+    void listHouseMatchRequestsShouldExposeCandidateCardVotersWithoutDirectionAndMyVote() {
+        User caller = named("member-1", "Ana Moradora", "house-1");
+        User other = named("member-2", "Bruno Morador", "house-1");
+        House house = openHouse("house-1", 2, VotingRule.UNANIMITY);
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+        User candidate = named("candidate-1", "Carla", null);
+        candidate.setEmail("carla@test.com");
+
+        when(userRepository.findById("member-1")).thenReturn(Optional.of(caller));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(matchRequestRepository.findByHouseIdAndStatusOrderByCreatedAtAsc("house-1", MatchStatus.PENDING))
+                .thenReturn(List.of(req));
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(candidate));
+        when(userProfileRepository.findById("candidate-1")).thenReturn(Optional.empty());
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of(caller, other));
+        when(matchVoteRepository.findByRequestId("req-1")).thenReturn(List.of(
+                matchVote("req-1", "member-2", VoteType.REJECT),
+                matchVote("req-1", "member-1", VoteType.APPROVE),
+                matchVote("req-1", "former-1", VoteType.APPROVE)));
+        when(pointService.getUserPointsSummary("candidate-1")).thenReturn(new PointsSummaryDto(42, 7));
+        when(residenceHistoryService.calculateTotalResidenceMonths("candidate-1")).thenReturn(5);
+
+        List<MatchRequestResponse> list = matchService.listHouseMatchRequests("member-1", "house-1");
+
+        assertEquals(1, list.size());
+        MatchRequestResponse item = list.get(0);
+        assertEquals("Carla", item.getUserName());
+        assertEquals("carla@test.com", item.getUserEmail());
+        assertNull(item.getCompatibilityScore());
+
+        CandidateCardDto card = item.getCandidate();
+        assertEquals("candidate-1", card.id());
+        assertEquals("Carla", card.name());
+        assertNull(card.compatibilityScore(), "incomplete profile -> null compatibility");
+        assertEquals(42, card.points());
+        assertEquals(5, card.residenceMonths());
+
+        // Only current residents, in resident order, and no vote direction.
+        assertEquals(List.of(new VoterSummaryDto("member-1", "Ana Moradora"),
+                new VoterSummaryDto("member-2", "Bruno Morador")), item.getVoters());
+        assertEquals("APPROVE", item.getMyVote());
+    }
+
+    @Test
+    void listHouseMatchRequestsShouldReturnNullMyVoteWhenCallerHasNotVoted() {
+        User caller = named("member-1", "Ana", "house-1");
+        House house = openHouse("house-1", 1, VotingRule.UNANIMITY);
+        MatchRequest req = pendingRequest("req-1", "candidate-1", "house-1");
+
+        when(userRepository.findById("member-1")).thenReturn(Optional.of(caller));
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(matchRequestRepository.findByHouseIdAndStatusOrderByCreatedAtAsc("house-1", MatchStatus.PENDING))
+                .thenReturn(List.of(req));
+        when(userRepository.findById("candidate-1")).thenReturn(Optional.of(named("candidate-1", "C", null)));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of(caller));
+        when(matchVoteRepository.findByRequestId("req-1")).thenReturn(List.of());
+        when(pointService.getUserPointsSummary("candidate-1")).thenReturn(new PointsSummaryDto(0, 0));
+        when(residenceHistoryService.calculateTotalResidenceMonths("candidate-1")).thenReturn(null);
+
+        MatchRequestResponse item = matchService.listHouseMatchRequests("member-1", "house-1").get(0);
+
+        assertNull(item.getMyVote());
+        assertTrue(item.getVoters().isEmpty());
+        assertEquals(0, item.getCandidate().points());
+        assertNull(item.getCandidate().residenceMonths());
     }
 }

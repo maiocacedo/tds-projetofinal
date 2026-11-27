@@ -15,13 +15,14 @@ public class UserMeResponse {
     private List<String> permissions;
     private PointsSummaryDto points;
     private Integer residenceMonths;
+    private boolean pendingWelcome;
 
     public UserMeResponse() {}
 
     public UserMeResponse(String id, String name, String email, String houseId,
                           Boolean isHouseAdmin, String houseName, UserProfileDto profile,
                           boolean profileComplete, List<String> permissions,
-                          PointsSummaryDto points, Integer residenceMonths) {
+                          PointsSummaryDto points, Integer residenceMonths, boolean pendingWelcome) {
         this.id = id;
         this.name = name;
         this.email = email;
@@ -33,6 +34,7 @@ public class UserMeResponse {
         this.permissions = permissions;
         this.points = points;
         this.residenceMonths = residenceMonths;
+        this.pendingWelcome = pendingWelcome;
     }
 
     public String getId() { return id; }
@@ -67,4 +69,7 @@ public class UserMeResponse {
 
     public Integer getResidenceMonths() { return residenceMonths; }
     public void setResidenceMonths(Integer residenceMonths) { this.residenceMonths = residenceMonths; }
+
+    public boolean isPendingWelcome() { return pendingWelcome; }
+    public void setPendingWelcome(boolean pendingWelcome) { this.pendingWelcome = pendingWelcome; }
 }

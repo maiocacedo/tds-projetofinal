@@ -27,6 +27,10 @@ public class House {
     @Column(name = "is_accepting_matches")
     private Boolean isAcceptingMatches = true;
 
+    // Independent from isAcceptingMatches: reaching 0 does not pause the house by itself.
+    @Column(name = "vacancies", nullable = false)
+    private Integer vacancies = 1;
+
     @Column(name = "rent_amount")
     private BigDecimal rentAmount;
 
@@ -67,6 +71,9 @@ public class House {
 
     public Boolean getIsAcceptingMatches() { return isAcceptingMatches; }
     public void setIsAcceptingMatches(Boolean isAcceptingMatches) { this.isAcceptingMatches = isAcceptingMatches; }
+
+    public Integer getVacancies() { return vacancies; }
+    public void setVacancies(Integer vacancies) { this.vacancies = vacancies; }
 
     public BigDecimal getRentAmount() { return rentAmount; }
     public void setRentAmount(BigDecimal rentAmount) { this.rentAmount = rentAmount; }
