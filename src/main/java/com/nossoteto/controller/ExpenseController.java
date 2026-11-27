@@ -5,7 +5,9 @@ import com.nossoteto.dto.ExpenseResponse;
 import com.nossoteto.dto.ExpenseSummaryResponse;
 import com.nossoteto.dto.ProposeSplitRequest;
 import com.nossoteto.dto.UpdateExpenseRequest;
+import com.nossoteto.dto.UpdateRecurrenceRequest;
 import com.nossoteto.dto.VoteRequestDto;
+import com.nossoteto.service.ExpenseRecurrenceService;
 import com.nossoteto.service.ExpenseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -28,9 +30,11 @@ import java.util.List;
 public class ExpenseController {
 
     private final ExpenseService expenseService;
+    private final ExpenseRecurrenceService expenseRecurrenceService;
 
-    public ExpenseController(ExpenseService expenseService) {
+    public ExpenseController(ExpenseService expenseService, ExpenseRecurrenceService expenseRecurrenceService) {
         this.expenseService = expenseService;
+        this.expenseRecurrenceService = expenseRecurrenceService;
     }
 
     @PostMapping
@@ -138,6 +142,17 @@ public class ExpenseController {
             @PathVariable String splitId) {
         String userId = extractUserId(authentication);
         return ResponseEntity.ok(expenseService.confirmReceived(userId, houseId, expenseId, splitId));
+    }
+
+    @PutMapping("/{expenseId}/recurrence")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_EXPENSES') and hasAuthority('SCOPE_write')")
+    public ResponseEntity<ExpenseResponse> updateRecurrence(
+            Authentication authentication,
+            @PathVariable String houseId,
+            @PathVariable String expenseId,
+            @RequestBody UpdateRecurrenceRequest request) {
+        String userId = extractUserId(authentication);
+        return ResponseEntity.ok(expenseRecurrenceService.updateRecurrence(userId, houseId, expenseId, request));
     }
 
     @PutMapping("/{expenseId}/splits/{splitId}/not-received")

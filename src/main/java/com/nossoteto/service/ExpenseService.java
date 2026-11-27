@@ -40,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -69,6 +70,7 @@ public class ExpenseService {
     static final String RECURRING_DAY_REQUIRED_MESSAGE = "recurringDay is required when recurrence is active";
     static final String TOTAL_NOT_POSITIVE_MESSAGE = "Expense total amount must be greater than zero";
     static final String NOTHING_TO_PAY_MESSAGE = "split has nothing to pay";
+    static final String GENERATED_OCCURRENCE_MESSAGE = "cannot change recurrence of a generated occurrence";
     static final int ON_TIME_POINTS = 10;
 
     private final ExpenseRepository expenseRepository;
@@ -148,9 +150,9 @@ public class ExpenseService {
         expense.setRecurringDay(request.getRecurringDay());
         expense.setRecurrenceActive(recurrenceActive);
         if (request.getRecurringDay() != null && recurrenceActive) {
-            // The original counts as this month's occurrence, so the recurrence job will not duplicate it.
+            // The original counts as the occurrence of its own month, so the recurrence job will not duplicate it.
             expense.setRecurrenceSourceId(expense.getId());
-            expense.setRecurrenceMonth(YearMonth.from(AppTime.today(clock)).toString());
+            expense.setRecurrenceMonth(firstRecurrenceMonth(expense.getDueDate()));
         }
 
         if (request.getAttachmentBase64() != null && !request.getAttachmentBase64().isBlank()) {
@@ -161,22 +163,8 @@ public class ExpenseService {
         Expense savedExpense = expenseRepository.save(expense);
 
         List<String> memberIds = members.stream().map(User::getId).toList();
-        Map<String, BigDecimal> shares = equalShares(totalAmount, memberIds, paidById);
-        LocalDateTime now = AppTime.nowUtc(clock);
-
-        List<ExpenseSplit> splits = new ArrayList<>();
-        for (String memberId : memberIds) {
-            ExpenseSplit split = new ExpenseSplit();
-            split.setId(UUID.randomUUID().toString());
-            split.setExpenseId(savedExpense.getId());
-            split.setUserId(memberId);
-            split.setAmountDue(shares.get(memberId));
-            split.setIsPaid(false);
-            if (Objects.equals(memberId, paidById)) {
-                markAsPayerShare(split, now);
-            }
-            splits.add(split);
-        }
+        List<ExpenseSplit> splits = buildEqualSplits(
+                savedExpense.getId(), totalAmount, memberIds, paidById, AppTime.nowUtc(clock));
 
         expenseSplitRepository.saveAll(splits);
         return toResponse(savedExpense, splits);
@@ -487,6 +475,9 @@ public class ExpenseService {
         if (request == null) {
             throw new BusinessRuleException("Request body is required");
         }
+        if (isGeneratedOccurrence(expense) && Boolean.TRUE.equals(request.getRecurrenceActive())) {
+            throw new ConflictException(GENERATED_OCCURRENCE_MESSAGE);
+        }
         if (request.getTitle() != null && request.getTitle().isBlank()) {
             throw new BusinessRuleException("Expense title is required");
         }
@@ -534,7 +525,7 @@ public class ExpenseService {
                 && expense.getRecurringDay() != null
                 && expense.getRecurrenceSourceId() == null) {
             expense.setRecurrenceSourceId(expense.getId());
-            expense.setRecurrenceMonth(YearMonth.from(AppTime.today(clock)).toString());
+            expense.setRecurrenceMonth(firstRecurrenceMonth(expense.getDueDate()));
         }
 
         boolean customSplit = expense.getSplitType() != SplitType.EQUAL;
@@ -718,8 +709,44 @@ public class ExpenseService {
         }
     }
 
+    /**
+     * First month the recurrence covers: the later of the current month and the due date's month, so an
+     * expense created on 26/11 and due on 05/12 already stands for December and the job does not repeat it.
+     */
+    String firstRecurrenceMonth(LocalDate dueDate) {
+        YearMonth current = YearMonth.from(AppTime.today(clock));
+        YearMonth due = YearMonth.from(dueDate);
+        return (due.isAfter(current) ? due : current).toString();
+    }
+
+    /** An occurrence created by the recurrence job points at its template, never at itself. */
+    static boolean isGeneratedOccurrence(Expense expense) {
+        return expense.getRecurrenceSourceId() != null
+                && !expense.getRecurrenceSourceId().equals(expense.getId());
+    }
+
+    /** Equal splits among the given members, with the payer's share already settled. */
+    static List<ExpenseSplit> buildEqualSplits(
+            String expenseId, BigDecimal total, List<String> memberIds, String payerId, LocalDateTime now) {
+        Map<String, BigDecimal> shares = equalShares(total, memberIds, payerId);
+        List<ExpenseSplit> splits = new ArrayList<>();
+        for (String memberId : memberIds) {
+            ExpenseSplit split = new ExpenseSplit();
+            split.setId(UUID.randomUUID().toString());
+            split.setExpenseId(expenseId);
+            split.setUserId(memberId);
+            split.setAmountDue(shares.get(memberId));
+            split.setIsPaid(false);
+            if (Objects.equals(memberId, payerId)) {
+                markAsPayerShare(split, now);
+            }
+            splits.add(split);
+        }
+        return splits;
+    }
+
     /** The payer fronted the whole bill, so their own share is settled the moment it exists. */
-    private void markAsPayerShare(ExpenseSplit split, LocalDateTime now) {
+    private static void markAsPayerShare(ExpenseSplit split, LocalDateTime now) {
         split.setIsPaid(true);
         split.setPaidAt(now);
         split.setReceivedConfirmedAt(now);
@@ -729,7 +756,7 @@ public class ExpenseService {
      * Equal shares rounded down to the cent; the leftover cents go to the payer (or to the first
      * participant when the payer is not part of the split).
      */
-    private Map<String, BigDecimal> equalShares(BigDecimal total, List<String> userIds, String payerId) {
+    private static Map<String, BigDecimal> equalShares(BigDecimal total, List<String> userIds, String payerId) {
         BigDecimal count = BigDecimal.valueOf(userIds.size());
         BigDecimal baseShare = total.divide(count, 2, RoundingMode.DOWN);
         BigDecimal remainder = total.subtract(baseShare.multiply(count));
@@ -798,7 +825,7 @@ public class ExpenseService {
         }
     }
 
-    private ExpenseResponse toResponse(Expense expense, List<ExpenseSplit> splits) {
+    ExpenseResponse toResponse(Expense expense, List<ExpenseSplit> splits) {
         Set<String> ids = new HashSet<>();
         ids.add(expense.getPaidById());
         splits.forEach(s -> ids.add(s.getUserId()));
