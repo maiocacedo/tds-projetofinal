@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +22,9 @@ import java.util.List;
 @RequestMapping("/api/houses/{houseId}/groceries")
 public class GroceryController {
 
+    private static final String READ = "hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_read')";
+    private static final String WRITE = "hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_write')";
+
     private final GroceryService groceryService;
 
     public GroceryController(GroceryService groceryService) {
@@ -28,7 +32,7 @@ public class GroceryController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_write')")
+    @PreAuthorize(WRITE)
     public ResponseEntity<GroceryResponse> createGrocery(
             Authentication authentication,
             @PathVariable String houseId,
@@ -39,7 +43,7 @@ public class GroceryController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_read')")
+    @PreAuthorize(READ)
     public ResponseEntity<List<GroceryResponse>> listGroceries(
             Authentication authentication,
             @PathVariable String houseId) {
@@ -47,8 +51,30 @@ public class GroceryController {
         return ResponseEntity.ok(groceryService.listGroceries(userId, houseId));
     }
 
+    @PutMapping("/{itemId}")
+    @PreAuthorize(WRITE)
+    public ResponseEntity<GroceryResponse> updateGrocery(
+            Authentication authentication,
+            @PathVariable String houseId,
+            @PathVariable String itemId,
+            @RequestBody CreateGroceryRequest request) {
+        String userId = extractUserId(authentication);
+        return ResponseEntity.ok(groceryService.updateGrocery(userId, houseId, itemId, request));
+    }
+
+    @DeleteMapping("/{itemId}")
+    @PreAuthorize(WRITE)
+    public ResponseEntity<Void> deleteGrocery(
+            Authentication authentication,
+            @PathVariable String houseId,
+            @PathVariable String itemId) {
+        String userId = extractUserId(authentication);
+        groceryService.deleteGrocery(userId, houseId, itemId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/{itemId}/assign")
-    @PreAuthorize("hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_write')")
+    @PreAuthorize(WRITE)
     public ResponseEntity<GroceryResponse> assignGrocery(
             Authentication authentication,
             @PathVariable String houseId,
@@ -57,14 +83,34 @@ public class GroceryController {
         return ResponseEntity.ok(groceryService.assignGrocery(userId, houseId, itemId));
     }
 
+    @DeleteMapping("/{itemId}/assign")
+    @PreAuthorize(WRITE)
+    public ResponseEntity<GroceryResponse> unassignGrocery(
+            Authentication authentication,
+            @PathVariable String houseId,
+            @PathVariable String itemId) {
+        String userId = extractUserId(authentication);
+        return ResponseEntity.ok(groceryService.unassignGrocery(userId, houseId, itemId));
+    }
+
     @PutMapping("/{itemId}/purchase")
-    @PreAuthorize("hasAuthority('ROLE_MANAGE_GROCERIES') and hasAuthority('SCOPE_write')")
+    @PreAuthorize(WRITE)
     public ResponseEntity<GroceryResponse> markAsPurchased(
             Authentication authentication,
             @PathVariable String houseId,
             @PathVariable String itemId) {
         String userId = extractUserId(authentication);
         return ResponseEntity.ok(groceryService.markAsPurchased(userId, houseId, itemId));
+    }
+
+    @PutMapping("/{itemId}/unpurchase")
+    @PreAuthorize(WRITE)
+    public ResponseEntity<GroceryResponse> unpurchaseGrocery(
+            Authentication authentication,
+            @PathVariable String houseId,
+            @PathVariable String itemId) {
+        String userId = extractUserId(authentication);
+        return ResponseEntity.ok(groceryService.unpurchaseGrocery(userId, houseId, itemId));
     }
 
     private String extractUserId(Authentication authentication) {
