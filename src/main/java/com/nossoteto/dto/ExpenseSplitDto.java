@@ -1,6 +1,9 @@
 package com.nossoteto.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class ExpenseSplitDto {
@@ -13,6 +16,15 @@ public class ExpenseSplitDto {
     private String userName;
     private LocalDateTime paidAt;
     private LocalDateTime receivedConfirmedAt;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String expenseId;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private LocalDate dueDate;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String expenseTitle;
 
     public ExpenseSplitDto() {}
 
@@ -39,4 +51,13 @@ public class ExpenseSplitDto {
 
     public LocalDateTime getReceivedConfirmedAt() { return receivedConfirmedAt; }
     public void setReceivedConfirmedAt(LocalDateTime receivedConfirmedAt) { this.receivedConfirmedAt = receivedConfirmedAt; }
+
+    public String getExpenseId() { return expenseId; }
+    public void setExpenseId(String expenseId) { this.expenseId = expenseId; }
+
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+
+    public String getExpenseTitle() { return expenseTitle; }
+    public void setExpenseTitle(String expenseTitle) { this.expenseTitle = expenseTitle; }
 }
