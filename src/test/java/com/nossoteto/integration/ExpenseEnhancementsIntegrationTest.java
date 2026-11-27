@@ -237,8 +237,9 @@ class ExpenseEnhancementsIntegrationTest {
         Fixture f = houseWithThreeResidents();
         clock.pin(Instant.parse("2026-12-01T02:00:00Z")); // still 2026-11-30 in America/Sao_Paulo
 
+        // Due today in Sao Paulo: the recurrence month follows Sao Paulo (2026-11), not UTC (2026-12).
         JsonNode created = createExpense(f.ana(), f.houseId(),
-                "{\"title\":\"Internet\",\"totalAmount\":90,\"dueDate\":\"2026-12-05\","
+                "{\"title\":\"Internet\",\"totalAmount\":90,\"dueDate\":\"2026-11-30\","
                         + "\"paidById\":\"" + f.bruno() + "\",\"recurringDay\":31,\"recurrenceActive\":true}");
 
         assertEquals(f.bruno(), created.get("paidBy").get("id").asText());

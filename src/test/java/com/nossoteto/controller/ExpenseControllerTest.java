@@ -5,6 +5,7 @@ import com.nossoteto.dto.ExpenseResponse;
 import com.nossoteto.dto.ExpenseSplitDto;
 import com.nossoteto.dto.ExpenseSummaryResponse;
 import com.nossoteto.dto.UpdateExpenseRequest;
+import com.nossoteto.dto.UpdateRecurrenceRequest;
 import com.nossoteto.dto.UserRefDto;
 import com.nossoteto.dto.ProposeSplitRequest;
 import com.nossoteto.dto.VoteRequestDto;
@@ -12,6 +13,7 @@ import com.nossoteto.exception.BusinessRuleException;
 import com.nossoteto.exception.ConflictException;
 import com.nossoteto.exception.ForbiddenOperationException;
 import com.nossoteto.model.enums.SplitType;
+import com.nossoteto.service.ExpenseRecurrenceService;
 import com.nossoteto.service.ExpenseService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -52,6 +54,9 @@ class ExpenseControllerTest {
 
     @MockBean
     private ExpenseService expenseService;
+
+    @MockBean
+    private ExpenseRecurrenceService expenseRecurrenceService;
 
     private UsernamePasswordAuthenticationToken auth(String userId) {
         return new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
@@ -277,5 +282,52 @@ class ExpenseControllerTest {
                 .andExpect(jsonPath("$.members[0].paidCount").value(1))
                 .andExpect(jsonPath("$.members[0].totalCount").value(2))
                 .andExpect(jsonPath("$.members[0].openAmount").value(30.00));
+    }
+
+    @Test
+    void updateRecurrenceShouldBindAliasesAndMapServiceErrors() throws Exception {
+        ExpenseResponse response = new ExpenseResponse();
+        response.setId("exp-1");
+        response.setRecurrenceActive(true);
+        response.setRecurringDay(5);
+        ArgumentCaptor<UpdateRecurrenceRequest> captor = ArgumentCaptor.forClass(UpdateRecurrenceRequest.class);
+        when(expenseRecurrenceService.updateRecurrence(eq("u1"), eq("house-1"), eq("exp-1"), captor.capture()))
+                .thenReturn(response);
+
+        mockMvc.perform(put("/api/houses/house-1/expenses/exp-1/recurrence")
+                        .principal(auth("u1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ativa\":true,\"dia\":5}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("exp-1"))
+                .andExpect(jsonPath("$.recurrenceActive").value(true))
+                .andExpect(jsonPath("$.recurringDay").value(5));
+        assertEquals(Boolean.TRUE, captor.getValue().getActive());
+        assertEquals(5, captor.getValue().getDay());
+
+        when(expenseRecurrenceService.updateRecurrence(eq("u1"), eq("house-1"), eq("exp-child"), any()))
+                .thenThrow(new ConflictException("cannot change recurrence of a generated occurrence"));
+        mockMvc.perform(put("/api/houses/house-1/expenses/exp-child/recurrence")
+                        .principal(auth("u1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":true,\"day\":5}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("cannot change recurrence of a generated occurrence"));
+
+        when(expenseRecurrenceService.updateRecurrence(eq("u1"), eq("house-1"), eq("exp-bad"), any()))
+                .thenThrow(new BusinessRuleException("recurringDay must be between 1 and 31"));
+        mockMvc.perform(put("/api/houses/house-1/expenses/exp-bad/recurrence")
+                        .principal(auth("u1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":true,\"day\":32}"))
+                .andExpect(status().isBadRequest());
+
+        when(expenseRecurrenceService.updateRecurrence(eq("u2"), eq("house-1"), eq("exp-1"), any()))
+                .thenThrow(new ForbiddenOperationException("only the creator or a house admin can change the recurrence"));
+        mockMvc.perform(put("/api/houses/house-1/expenses/exp-1/recurrence")
+                        .principal(auth("u2"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isForbidden());
     }
 }
