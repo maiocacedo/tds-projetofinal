@@ -134,11 +134,11 @@ class NossoTetoIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("PENDING"));
 
-        // User C already lives in House C, so they cannot ask to join House A without leaving first
+        // User C already lives in House C, so they cannot ask to join their own house
         mockMvc.perform(post("/api/matches/requests")
                         .header("Authorization", "Bearer " + tokenC)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"houseId\": \"" + houseAId + "\"}"))
+                        .content("{\"houseId\": \"" + houseCId + "\"}"))
                 .andExpect(status().isBadRequest());
 
         // 5. User A votes APROVAR -> User B is accepted into House A (hasOtherPendingRequests == true), and User B cancels others

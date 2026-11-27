@@ -20,4 +20,9 @@ public interface HouseRepository extends JpaRepository<House, String> {
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE House h SET h.vacancies = h.vacancies - 1 WHERE h.id = :id AND h.vacancies > 0")
     int decrementVacancyIfAvailable(@Param("id") String id);
+
+    /** Gives one reserved vacancy back (expired, declined, retracted or superseded move). */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE House h SET h.vacancies = h.vacancies + 1 WHERE h.id = :houseId")
+    int incrementVacancy(@Param("houseId") String houseId);
 }

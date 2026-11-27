@@ -1,9 +1,11 @@
 package com.nossoteto.service;
 
 import com.nossoteto.dto.CandidateCardDto;
+import com.nossoteto.dto.ConfirmMoveRequest;
 import com.nossoteto.dto.CreateMatchRequestDto;
 import com.nossoteto.dto.MatchRequestResponse;
 import com.nossoteto.dto.MyMatchRequestDto;
+import com.nossoteto.dto.UserMeResponse;
 import com.nossoteto.dto.UserProfileDto;
 import com.nossoteto.dto.VoteMatchResponse;
 import com.nossoteto.dto.VoteRequestDto;
@@ -25,9 +27,12 @@ import com.nossoteto.repository.MatchRequestRepository;
 import com.nossoteto.repository.MatchVoteRepository;
 import com.nossoteto.repository.UserProfileRepository;
 import com.nossoteto.repository.UserRepository;
+import com.nossoteto.util.AppTime;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +53,12 @@ public class MatchService {
     private final VotingEvaluator votingEvaluator;
     private final ResidenceHistoryService residenceHistoryService;
     private final PointService pointService;
+    private final HouseMembershipService houseMembershipService;
+    private final UserService userService;
+    private final Clock clock;
+
+    static final long MOVE_RESERVATION_HOURS = 72;
+    private static final List<MatchStatus> OPEN_STATUSES = List.of(MatchStatus.PENDING, MatchStatus.AWAITING_MOVE);
 
     public MatchService(MatchRequestRepository matchRequestRepository,
                         MatchVoteRepository matchVoteRepository,
@@ -58,7 +69,10 @@ public class MatchService {
                         CompatibilityCalculator compatibilityCalculator,
                         VotingEvaluator votingEvaluator,
                         ResidenceHistoryService residenceHistoryService,
-                        PointService pointService) {
+                        PointService pointService,
+                        HouseMembershipService houseMembershipService,
+                        UserService userService,
+                        Clock clock) {
         this.matchRequestRepository = matchRequestRepository;
         this.matchVoteRepository = matchVoteRepository;
         this.houseRepository = houseRepository;
@@ -69,10 +83,15 @@ public class MatchService {
         this.votingEvaluator = votingEvaluator;
         this.residenceHistoryService = residenceHistoryService;
         this.pointService = pointService;
+        this.houseMembershipService = houseMembershipService;
+        this.userService = userService;
+        this.clock = clock;
     }
 
     @Transactional
     public MatchRequestResponse createMatchRequest(String userId, CreateMatchRequestDto dto) {
+        // An overdue reservation must not keep blocking a new request to the same house.
+        expireOverdueMoves();
         User user = houseAccessValidator.requireAuthenticatedUser(userId);
         if (dto == null || dto.getHouseId() == null || dto.getHouseId().isBlank()) {
             throw new BusinessRuleException("House ID is required");
@@ -88,14 +107,12 @@ public class MatchService {
             throw new BusinessRuleException("house is not accepting requests");
         }
 
+        // A resident may ask for another house (B6 move); only their own house is refused.
         if (houseId.equals(user.getHouseId())) {
-            throw new BusinessRuleException("User already belongs to this house");
-        }
-        if (user.getHouseId() != null) {
-            throw new BusinessRuleException("User already belongs to a house; leave it before requesting another one");
+            throw new BusinessRuleException("user already belongs to this house");
         }
 
-        if (matchRequestRepository.existsByUserIdAndHouseIdAndStatus(userId, houseId, MatchStatus.PENDING)) {
+        if (matchRequestRepository.existsByUserIdAndHouseIdAndStatusIn(userId, houseId, OPEN_STATUSES)) {
             throw new BusinessRuleException("Match request already pending for this house");
         }
 
@@ -113,12 +130,14 @@ public class MatchService {
     // Not readOnly on purpose: B6 hooks request expiration into these reads.
     @Transactional
     public List<MatchRequestResponse> listHouseMatchRequests(String userId, String houseId) {
+        expireOverdueMoves();
         houseAccessValidator.requireHouseMember(userId, houseId);
         House house = houseRepository.findById(houseId)
                 .orElseThrow(() -> new ResourceNotFoundException("House not found: " + houseId));
 
-        List<MatchRequest> requests = matchRequestRepository.findByHouseIdAndStatusOrderByCreatedAtAsc(
-                houseId, MatchStatus.PENDING);
+        // AWAITING_MOVE too: the admin must see the reservation to be able to retract it.
+        List<MatchRequest> requests = matchRequestRepository.findByHouseIdAndStatusInOrderByCreatedAtAsc(
+                houseId, OPEN_STATUSES);
         List<User> residents = userRepository.findByHouseIdOrderByIdAsc(houseId);
 
         return requests.stream()
@@ -137,6 +156,7 @@ public class MatchService {
      */
     @Transactional
     public List<MyMatchRequestDto> listMyMatchRequests(String userId) {
+        expireOverdueMoves();
         houseAccessValidator.requireAuthenticatedUser(userId);
         return matchRequestRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(this::toMyMatchRequest)
@@ -163,6 +183,7 @@ public class MatchService {
 
     @Transactional
     public VoteMatchResponse voteOnMatchRequest(String voterId, String requestId, VoteRequestDto dto) {
+        expireOverdueMoves();
         MatchRequest matchRequest = matchRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Match request not found: " + requestId));
 
@@ -213,14 +234,11 @@ public class MatchService {
                     .orElseThrow(() -> new ResourceNotFoundException("Candidate not found: " + candidateId));
 
             if (candidate.getHouseId() != null) {
-                // The candidate kept this request open (RF06) but joined another house meanwhile:
-                // close the request instead of silently moving them out of their current house.
-                // No vacancy is consumed here. Conditional update: never overwrite a concurrent
-                // ACCEPTED/WITHDRAWN.
-                if (matchRequestRepository.transitionStatusFromPending(requestId, MatchStatus.CANCELLED) == 0) {
-                    throw new ConflictException("request is no longer pending");
-                }
-                matchRequest.setStatus(MatchStatus.CANCELLED);
+                // The candidate lives in another house: reserve the vacancy for 72 h (AWAITING_MOVE)
+                // and let them confirm the move. Nobody is moved out of their house here.
+                LocalDateTime deadline = reserveMove(requestId, houseId, candidateId, candidate.getHouseId());
+                matchRequest.setStatus(MatchStatus.AWAITING_MOVE);
+                matchRequest.setMoveDeadline(deadline);
                 return buildVoteResponse(requestId, matchRequest.getStatus(), approveCount, rejectCount,
                         totalMembers, false, List.of());
             }
@@ -264,6 +282,132 @@ public class MatchService {
 
         return buildVoteResponse(requestId, matchRequest.getStatus(), approveCount, rejectCount,
                 totalMembers, hasOtherPending, otherPendingIds);
+    }
+
+    private LocalDateTime reserveMove(String requestId, String houseId, String candidateId, String currentHouseId) {
+        if (houseId.equals(currentHouseId)) {
+            throw new ConflictException("candidate already belongs to this house");
+        }
+        reserveVacancyOrThrow(houseId);
+        LocalDateTime deadline = AppTime.nowUtc(clock).plusHours(MOVE_RESERVATION_HOURS);
+        if (matchRequestRepository.transitionPendingToAwaitingMove(requestId, deadline) == 0) {
+            throw new ConflictException("request is no longer pending");
+        }
+        // Re-check after the bulk updates cleared the context: a concurrent move may have put the
+        // candidate in this house already. Throwing rolls back the vacancy and the transition.
+        User reloaded = userRepository.findById(candidateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate not found: " + candidateId));
+        if (houseId.equals(reloaded.getHouseId())) {
+            throw new ConflictException("candidate already belongs to this house");
+        }
+        return deadline;
+    }
+
+    /**
+     * Turns overdue AWAITING_MOVE reservations into EXPIRED and gives each vacancy back. Runs
+     * periodically and at the start of the match reads/actions; both paths give the same result.
+     * The vacancy is only returned when this transaction actually expired the row, so the job
+     * and a concurrent read never give it back twice. Never readOnly: it writes.
+     */
+    @Scheduled(fixedDelay = 300_000)
+    @Transactional
+    public void expireOverdueMoves() {
+        LocalDateTime now = AppTime.nowUtc(clock);
+        List<MatchRequest> overdue = matchRequestRepository
+                .findByStatusAndMoveDeadlineLessThanEqual(MatchStatus.AWAITING_MOVE, now);
+        for (MatchRequest req : overdue) {
+            if (matchRequestRepository.expireAwaitingMove(req.getId(), now) == 1) {
+                houseRepository.incrementVacancy(req.getHouseId());
+            }
+        }
+    }
+
+    /**
+     * Confirms an AWAITING_MOVE reservation: leaves the current house (same handover as "leave",
+     * heir included) and joins the target house in a single transaction. Any failure, such as a
+     * missing heir ("new admin required"), rolls back everything.
+     */
+    @Transactional
+    public UserMeResponse confirmMove(String userId, String requestId, ConfirmMoveRequest body) {
+        expireOverdueMoves();
+        MatchRequest request = requireOwnAwaitingMove(userId, requestId);
+        String targetHouseId = request.getHouseId();
+
+        User user = houseAccessValidator.requireAuthenticatedUser(userId);
+        if (userRepository.findByHouseIdOrderByIdAsc(targetHouseId).isEmpty()) {
+            throw new ConflictException("house is no longer active");
+        }
+
+        String oldHouseId = user.getHouseId();
+        if (oldHouseId != null) {
+            if (oldHouseId.equals(targetHouseId)) {
+                throw new ConflictException("user already belongs to this house");
+            }
+            // Not caught on purpose: a BusinessRuleException here must roll the whole move back.
+            houseMembershipService.leaveHouse(userId, oldHouseId, body != null ? body.getNewAdminId() : null);
+        }
+
+        if (matchRequestRepository.transitionAwaitingMoveTo(requestId, MatchStatus.ACCEPTED) == 0) {
+            throw new ConflictException("request is not awaiting move");
+        }
+
+        // The bulk update cleared the persistence context: reload before writing.
+        User mover = houseAccessValidator.requireAuthenticatedUser(userId);
+        mover.setHouseId(targetHouseId);
+        mover.setIsHouseAdmin(false);
+        mover.setPendingWelcome(false);
+        userRepository.save(mover);
+        residenceHistoryService.recordEntry(userId, targetHouseId);
+
+        // Only one move can win: every other reservation of this user is cancelled and its vacancy returned.
+        for (MatchRequest other : matchRequestRepository.findByUserIdAndStatus(userId, MatchStatus.AWAITING_MOVE)) {
+            if (!other.getId().equals(requestId)
+                    && matchRequestRepository.transitionAwaitingMoveTo(other.getId(), MatchStatus.CANCELLED) == 1) {
+                houseRepository.incrementVacancy(other.getHouseId());
+            }
+        }
+
+        return userService.getCurrentUser(userId);
+    }
+
+    /** The resident gives up on the move: WITHDRAWN and the vacancy goes back to the house. */
+    @Transactional
+    public void declineMove(String userId, String requestId) {
+        expireOverdueMoves();
+        MatchRequest request = requireOwnAwaitingMove(userId, requestId);
+        releaseReservation(request, MatchStatus.WITHDRAWN);
+    }
+
+    /** The target house's admin takes the reservation back: CANCELLED and the vacancy is returned. */
+    @Transactional
+    public void retractMove(String userId, String requestId) {
+        expireOverdueMoves();
+        MatchRequest request = matchRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Match request not found: " + requestId));
+        houseAccessValidator.requireHouseAdmin(userId, request.getHouseId());
+        if (request.getStatus() != MatchStatus.AWAITING_MOVE) {
+            throw new ConflictException("request is not awaiting move");
+        }
+        releaseReservation(request, MatchStatus.CANCELLED);
+    }
+
+    private MatchRequest requireOwnAwaitingMove(String userId, String requestId) {
+        MatchRequest request = matchRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Match request not found: " + requestId));
+        if (!request.getUserId().equals(userId)) {
+            throw new ForbiddenOperationException("only the owner can perform this action");
+        }
+        if (request.getStatus() != MatchStatus.AWAITING_MOVE) {
+            throw new ConflictException("request is not awaiting move");
+        }
+        return request;
+    }
+
+    private void releaseReservation(MatchRequest request, MatchStatus newStatus) {
+        if (matchRequestRepository.transitionAwaitingMoveTo(request.getId(), newStatus) == 0) {
+            throw new ConflictException("request is not awaiting move");
+        }
+        houseRepository.incrementVacancy(request.getHouseId());
     }
 
     /**
@@ -316,7 +460,7 @@ public class MatchService {
                 .filter(v -> voterIds.contains(v.getVoterId()))
                 .count();
         return new MyMatchRequestDto(req.getId(), req.getHouseId(), houseName, req.getStatus(),
-                req.getCreatedAt(), votesCast, voterIds.size(), null);
+                req.getCreatedAt(), votesCast, voterIds.size(), req.getMoveDeadline());
     }
 
     private void enrichForResidents(MatchRequestResponse response, MatchRequest req, User candidate,
@@ -357,6 +501,7 @@ public class MatchService {
         response.setCompatibilityScore(score);
         response.setUserProfile(UserProfileDto.fromEntity(profile));
         response.setCreatedAt(req.getCreatedAt());
+        response.setMoveDeadline(req.getMoveDeadline());
         return response;
     }
 }
