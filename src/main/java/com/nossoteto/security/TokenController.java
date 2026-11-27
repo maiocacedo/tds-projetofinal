@@ -42,10 +42,11 @@ public class TokenController {
             @RequestParam MultiValueMap<String, String> form,
             @CookieValue(name = RefreshTokenCookieFactory.COOKIE_NAME, required = false) String refreshCookie,
             HttpServletRequest request) {
-        SecurityProperties.Client client = clientAuthenticator.authenticate(authorization);
         if (request.getQueryString() != null && !request.getQueryString().isEmpty()) {
             throw OAuthException.invalidRequest("Parameters must be sent in the request body");
         }
+        String bodyClientId = singleParam(form, "client_id");
+        SecurityProperties.Client client = clientAuthenticator.authenticate(authorization, bodyClientId);
         String grantType = singleParam(form, "grant_type");
         String username = singleParam(form, "username");
         String password = singleParam(form, "password");
@@ -65,12 +66,14 @@ public class TokenController {
     @DeleteMapping("/revoke")
     public ResponseEntity<Void> revoke(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestParam(required = false) MultiValueMap<String, String> form,
             @CookieValue(name = RefreshTokenCookieFactory.COOKIE_NAME, required = false) String refreshCookie,
             HttpServletRequest request) {
-        SecurityProperties.Client client = clientAuthenticator.authenticate(authorization);
         if (request.getQueryString() != null && !request.getQueryString().isEmpty()) {
             throw OAuthException.invalidRequest("Query parameters are not allowed");
         }
+        String bodyClientId = singleParam(form, "client_id");
+        SecurityProperties.Client client = clientAuthenticator.authenticate(authorization, bodyClientId);
         tokenService.revoke(client, refreshCookie);
         return ResponseEntity.noContent()
                 .cacheControl(CacheControl.noStore())
@@ -79,6 +82,9 @@ public class TokenController {
     }
 
     private static String singleParam(MultiValueMap<String, String> form, String name) {
+        if (form == null) {
+            return null;
+        }
         List<String> values = form.get(name);
         if (values != null && values.size() > 1) {
             throw OAuthException.invalidRequest("Parameter " + name + " must not be repeated");
@@ -97,9 +103,10 @@ public class TokenController {
     }
 
     @ExceptionHandler(OAuthException.class)
-    public ResponseEntity<Map<String, String>> handle(OAuthException ex) {
+    public ResponseEntity<Map<String, String>> handle(OAuthException ex, HttpServletRequest request) {
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(ex.getStatus()).cacheControl(CacheControl.noStore());
-        if (ex.getStatus().value() == 401) {
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (ex.getStatus().value() == 401 && authorization != null && !authorization.isBlank()) {
             builder.header(HttpHeaders.WWW_AUTHENTICATE, "Basic realm=\"nosso-teto\"");
         }
         return builder.body(Map.of("error", ex.getError(), "error_description", ex.getMessage()));

@@ -15,8 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ClientAuthenticatorTest {
 
-    private final ClientAuthenticator authenticator = new ClientAuthenticator(props(
-            List.of(new SecurityProperties.Client("web", "s3cret", Set.of("read", "write")))));
+    private final ClientAuthenticator authenticator = new ClientAuthenticator(props(List.of(
+            new SecurityProperties.Client("mobile", "s3cret", Set.of("read"), false),
+            new SecurityProperties.Client("web", null, Set.of("read", "write"), true))));
 
     private static SecurityProperties props(List<SecurityProperties.Client> clients) {
         return new SecurityProperties(
@@ -28,60 +29,118 @@ class ClientAuthenticatorTest {
     }
 
     @Test
-    void validCredentialsReturnTheClient() {
-        assertEquals("web", authenticator.authenticate(basic("web:s3cret")).clientId());
+    void validConfidentialCredentialsReturnTheClient() {
+        assertEquals("mobile", authenticator.authenticate(basic("mobile:s3cret"), null).clientId());
+    }
+
+    @Test
+    void validPublicClientInBodyReturnsTheClient() {
+        assertEquals("web", authenticator.authenticate(null, "web").clientId());
+        assertEquals("web", authenticator.authenticate("   ", "web").clientId());
     }
 
     @Test
     void wrongSecretIsInvalidClient() {
-        OAuthException ex = assertThrows(OAuthException.class, () -> authenticator.authenticate(basic("web:nope")));
+        OAuthException ex = assertThrows(OAuthException.class,
+                () -> authenticator.authenticate(basic("mobile:nope"), null));
         assertEquals("invalid_client", ex.getError());
+        assertEquals(401, ex.getStatus().value());
     }
 
     @Test
-    void unknownClientMissingHeaderMalformedBase64AndNoColonAreInvalidClient() {
-        assertThrows(OAuthException.class, () -> authenticator.authenticate(basic("ghost:s3cret")));
-        assertThrows(OAuthException.class, () -> authenticator.authenticate(null));
-        assertThrows(OAuthException.class, () -> authenticator.authenticate("Basic %%%"));
-        assertThrows(OAuthException.class, () -> authenticator.authenticate(basic("websecret")));
-        assertThrows(OAuthException.class, () -> authenticator.authenticate("Bearer abc"));
+    void publicClientWithBasicAuthIsInvalidClient() {
+        OAuthException withSecret = assertThrows(OAuthException.class,
+                () -> authenticator.authenticate(basic("web:anything"), null));
+        assertEquals("invalid_client", withSecret.getError());
+
+        OAuthException withEmptySecret = assertThrows(OAuthException.class,
+                () -> authenticator.authenticate(basic("web:"), null));
+        assertEquals("invalid_client", withEmptySecret.getError());
     }
 
     @Test
-    void rejectsEmptyOrBlankClientSecret() {
+    void confidentialClientWithoutBasicAuthIsInvalidClient() {
+        OAuthException ex = assertThrows(OAuthException.class,
+                () -> authenticator.authenticate(null, "mobile"));
+        assertEquals("invalid_client", ex.getError());
+        assertEquals(401, ex.getStatus().value());
+    }
+
+    @Test
+    void bothAuthorizationHeaderAndBodyClientIdReturn400InvalidRequest() {
+        OAuthException ex1 = assertThrows(OAuthException.class,
+                () -> authenticator.authenticate(basic("mobile:s3cret"), "web"));
+        assertEquals("invalid_request", ex1.getError());
+        assertEquals(400, ex1.getStatus().value());
+
+        OAuthException ex2 = assertThrows(OAuthException.class,
+                () -> authenticator.authenticate(basic("mobile:s3cret"), "mobile"));
+        assertEquals("invalid_request", ex2.getError());
+        assertEquals(400, ex2.getStatus().value());
+    }
+
+    @Test
+    void unknownClientMissingAuthMalformedBase64AndNoColonAreInvalidClient() {
+        assertThrows(OAuthException.class, () -> authenticator.authenticate(basic("ghost:s3cret"), null));
+        assertThrows(OAuthException.class, () -> authenticator.authenticate(null, "ghost"));
+        assertThrows(OAuthException.class, () -> authenticator.authenticate(null, null));
+        assertThrows(OAuthException.class, () -> authenticator.authenticate("  ", "  "));
+        assertThrows(OAuthException.class, () -> authenticator.authenticate("Basic %%%", null));
+        assertThrows(OAuthException.class, () -> authenticator.authenticate(basic("mobilesecret"), null));
+        assertThrows(OAuthException.class, () -> authenticator.authenticate("Bearer abc", null));
+    }
+
+    @Test
+    void rejectsEmptyOrBlankClientSecretForConfidentialClient() {
         IllegalStateException emptyEx = assertThrows(IllegalStateException.class, () -> new ClientAuthenticator(
-                props(List.of(new SecurityProperties.Client("web", "", Set.of("read"))))));
-        assertTrue(emptyEx.getMessage().contains("web"));
+                props(List.of(new SecurityProperties.Client("mobile", "", Set.of("read"), false)))));
+        assertTrue(emptyEx.getMessage().contains("mobile"));
 
         IllegalStateException blankEx = assertThrows(IllegalStateException.class, () -> new ClientAuthenticator(
-                props(List.of(new SecurityProperties.Client("web", "   ", Set.of("read"))))));
-        assertTrue(blankEx.getMessage().contains("web"));
+                props(List.of(new SecurityProperties.Client("mobile", "   ", Set.of("read"), false)))));
+        assertTrue(blankEx.getMessage().contains("mobile"));
     }
 
     @Test
-    void rejectsNullClientSecret() {
+    void rejectsNullClientSecretForConfidentialClient() {
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> new ClientAuthenticator(
-                props(List.of(new SecurityProperties.Client("web", null, Set.of("read"))))));
+                props(List.of(new SecurityProperties.Client("mobile", null, Set.of("read"), false)))));
+        assertTrue(ex.getMessage().contains("mobile"));
+    }
+
+    @Test
+    void rejectsNonBlankClientSecretForPublicClientAndAllowsNullOrBlank() {
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> new ClientAuthenticator(
+                props(List.of(new SecurityProperties.Client("web", "leaked-secret", Set.of("read"), true)))));
         assertTrue(ex.getMessage().contains("web"));
+        assertFalse(ex.getMessage().contains("leaked-secret"));
+
+        ClientAuthenticator withNullSecret = new ClientAuthenticator(
+                props(List.of(new SecurityProperties.Client("web", null, Set.of("read"), true))));
+        assertEquals("web", withNullSecret.authenticate(null, "web").clientId());
+
+        ClientAuthenticator withBlankSecret = new ClientAuthenticator(
+                props(List.of(new SecurityProperties.Client("web", "   ", Set.of("read"), true))));
+        assertEquals("web", withBlankSecret.authenticate(null, "web").clientId());
     }
 
     @Test
     void rejectsEmptyOrNullScopes() {
         IllegalStateException emptyEx = assertThrows(IllegalStateException.class, () -> new ClientAuthenticator(
-                props(List.of(new SecurityProperties.Client("web", "s3cret", Set.of())))));
-        assertTrue(emptyEx.getMessage().contains("web"));
+                props(List.of(new SecurityProperties.Client("mobile", "s3cret", Set.of(), false)))));
+        assertTrue(emptyEx.getMessage().contains("mobile"));
 
         IllegalStateException nullEx = assertThrows(IllegalStateException.class, () -> new ClientAuthenticator(
-                props(List.of(new SecurityProperties.Client("web", "s3cret", null)))));
-        assertTrue(nullEx.getMessage().contains("web"));
+                props(List.of(new SecurityProperties.Client("mobile", "s3cret", null, false)))));
+        assertTrue(nullEx.getMessage().contains("mobile"));
     }
 
     @Test
     void rejectsBlankOrNullClientId() {
         assertThrows(IllegalStateException.class, () -> new ClientAuthenticator(
-                props(List.of(new SecurityProperties.Client("  ", "s3cret", Set.of("read"))))));
+                props(List.of(new SecurityProperties.Client("  ", "s3cret", Set.of("read"), false)))));
         assertThrows(IllegalStateException.class, () -> new ClientAuthenticator(
-                props(List.of(new SecurityProperties.Client(null, "s3cret", Set.of("read"))))));
+                props(List.of(new SecurityProperties.Client(null, "s3cret", Set.of("read"), false)))));
     }
 
     @Test
@@ -94,8 +153,8 @@ class ClientAuthenticatorTest {
     void rejectsDuplicateClientIdWithoutLeakingSecrets() {
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> new ClientAuthenticator(
                 props(List.of(
-                        new SecurityProperties.Client("web", "s3cret-A", Set.of("read")),
-                        new SecurityProperties.Client("web", "s3cret-B", Set.of("write"))))));
+                        new SecurityProperties.Client("web", "s3cret-A", Set.of("read"), false),
+                        new SecurityProperties.Client("web", "s3cret-B", Set.of("write"), false)))));
         assertTrue(ex.getMessage().contains("web"));
         assertFalse(ex.getMessage().contains("s3cret-A"));
         assertFalse(ex.getMessage().contains("s3cret-B"));
@@ -104,9 +163,12 @@ class ClientAuthenticatorTest {
 
     @Test
     void clientToStringMasksClientSecret() {
-        String rendered = new SecurityProperties.Client("web", "s3cret-A", Set.of("read")).toString();
+        String rendered = new SecurityProperties.Client("mobile", "s3cret-A", Set.of("read"), false).toString();
         assertFalse(rendered.contains("s3cret-A"));
-        assertTrue(rendered.contains("web"));
-        assertEquals("Client[clientId=web, clientSecret=******, scopes=[read]]", rendered);
+        assertTrue(rendered.contains("mobile"));
+        assertEquals("Client[clientId=mobile, clientSecret=******, scopes=[read], publicClient=false]", rendered);
+
+        String publicRendered = new SecurityProperties.Client("web", null, Set.of("read"), true).toString();
+        assertEquals("Client[clientId=web, clientSecret=******, scopes=[read], publicClient=true]", publicRendered);
     }
 }
