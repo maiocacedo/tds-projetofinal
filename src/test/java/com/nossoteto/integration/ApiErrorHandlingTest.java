@@ -14,7 +14,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -110,12 +109,9 @@ class ApiErrorHandlingTest {
     }
 
     private HttpResponse<String> sendTokenForm(String formBody) throws Exception {
-        String basic = Base64.getEncoder().encodeToString(
-                "nosso-teto-web:web-test-secret".getBytes(StandardCharsets.UTF_8));
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/oauth/token"))
-                .header("Authorization", "Basic " + basic)
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(formBody))
+                .POST(HttpRequest.BodyPublishers.ofString("client_id=nosso-teto-web&" + formBody))
                 .build();
         return http.send(request, HttpResponse.BodyHandlers.ofString());
     }

@@ -6,13 +6,13 @@ Este documento define os pilares técnicos para garantir a qualidade, segurança
 
 ### 1.1. Autenticação OAuth 2 + JWT (Stateless)
 - A API atua como **Spring Security OAuth 2 Resource Server**, validando **JSON Web Tokens (JWT)** assinados com **HMAC-SHA256 (`HS256`)** usando a chave obrigatória `JWT_SECRET` (mínimo 32 bytes, validada no startup e sem valor padrão em `application.properties`).
-- A emissão e renovação de tokens ocorrem no endpoint próprio `POST /oauth/token` (`application/x-www-form-urlencoded`, parâmetros aceitos **somente no corpo** e nunca repetidos), com autenticação do client via `Authorization: Basic` validada em tempo constante (`MessageDigest.isEqual`) contra os clients configurados (`nosso-teto-web` com scopes `read write`; `nosso-teto-mobile` com scope `read`).
+- A emissão e renovação de tokens ocorrem no endpoint próprio `POST /oauth/token` (`application/x-www-form-urlencoded`, parâmetros aceitos **somente no corpo** e nunca repetidos), com suporte a client público (`nosso-teto-web`, sem segredo, identificado por `client_id=nosso-teto-web` no corpo, com scopes `read write`) e client confidencial (`nosso-teto-mobile`, autenticado via `Authorization: Basic` validado em tempo constante com `MessageDigest.isEqual`, com scope `read`).
 - **Grants suportados:**
   - `password`: recebe `username` (e-mail) e `password` (verificado com **BCrypt** em tempo constante) e `scope` opcional (subconjunto dos scopes do client).
   - `refresh_token`: lê o refresh token diretamente do cookie `refresh_token` e executa rotação atômica.
 - **TTLs:** Access Token curto de **15 minutos** (`JWT_ACCESS_TTL=PT15M`) e Refresh Token de **7 dias** (`JWT_REFRESH_TTL=P7D`).
 - **Refresh Token em cookie e detecção de reuso:** o valor bruto (32 bytes aleatórios via `SecureRandom` em base64url) trafega apenas no cookie `refresh_token` (`HttpOnly; SameSite=Strict; Path=/oauth/token`; `Secure` controlado por `COOKIE_SECURE`). Apenas o hash **SHA-256** é persistido na tabela `refresh_tokens`. A rotação usa compare-and-set atômico (`used_at IS NULL`); qualquer tentativa de reuso revoga toda a família de tokens (`noRollbackFor`) e responde `400 invalid_grant`.
-- **Logout (`DELETE /oauth/token/revoke`):** autenticado com Basic do client, revoga a família do refresh token do cookie de forma idempotente (`204 No Content`) e limpa o cookie (`Max-Age=0`).
+- **Logout (`DELETE /oauth/token/revoke`):** autenticado pelo client (`client_id` no corpo para o client público `nosso-teto-web`, ou `Authorization: Basic` para clients confidenciais), revoga a família do refresh token do cookie de forma idempotente (`204 No Content`) e limpa o cookie (`Max-Age=0`).
 - `/api/auth/register` permanece público (atribuindo as 8 permissões padrão de usuário); o endpoint legado `/api/auth/login` foi removido.
 
 ### 1.2. Profile Alternativo (`basic-security`)
@@ -73,7 +73,7 @@ Variáveis disponíveis:
 | `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | não | `PT15M` / `P7D` |
 | `COOKIE_SECURE` | não | `false` (local) · `true` (produção) |
 | `CORS_ALLOWED_ORIGINS` | não | `http://localhost:5173` |
-| `WEB_CLIENT_SECRET` / `MOBILE_CLIENT_SECRET` | não | `web-dev-secret` / `mobile-dev-secret` |
+| `MOBILE_CLIENT_SECRET` | não | `mobile-dev-secret` (`nosso-teto-web` é client público, sem segredo) |
 | `SPRING_PROFILES_ACTIVE` | não | `basic-security` para Basic Auth |
 
 Exemplo no PowerShell:

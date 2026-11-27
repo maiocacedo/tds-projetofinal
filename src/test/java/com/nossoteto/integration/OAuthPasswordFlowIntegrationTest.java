@@ -61,9 +61,15 @@ class OAuthPasswordFlowIntegrationTest {
         return mockMvc.perform(req);
     }
 
+    private org.springframework.test.web.servlet.ResultActions publicToken(String clientId, String... params) throws Exception {
+        var req = post("/oauth/token").contentType(MediaType.APPLICATION_FORM_URLENCODED).param("client_id", clientId);
+        for (int i = 0; i < params.length; i += 2) req.param(params[i], params[i + 1]);
+        return mockMvc.perform(req);
+    }
+
     @Test
     void passwordGrantReturnsBearerJwtWithScopesAndPermissions() throws Exception {
-        MvcResult r = token("nosso-teto-web", "web-test-secret",
+        MvcResult r = publicToken("nosso-teto-web",
                 "grant_type", "password", "username", email, "password", "senha123")
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
@@ -90,33 +96,47 @@ class OAuthPasswordFlowIntegrationTest {
 
     @Test
     void wrongClientSecretIs401InvalidClientWithChallenge() throws Exception {
-        token("nosso-teto-web", "wrong", "grant_type", "password", "username", email, "password", "senha123")
+        token("nosso-teto-mobile", "wrong", "grant_type", "password", "username", email, "password", "senha123")
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string("WWW-Authenticate", "Basic realm=\"nosso-teto\""))
                 .andExpect(jsonPath("$.error").value("invalid_client"));
     }
 
     @Test
-    void missingClientAuthenticationIs401() throws Exception {
+    void publicClientUsingBasicAuthIs401InvalidClientWithChallenge() throws Exception {
+        token("nosso-teto-web", "web-test-secret", "grant_type", "password", "username", email, "password", "senha123")
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("WWW-Authenticate", "Basic realm=\"nosso-teto\""))
+                .andExpect(jsonPath("$.error").value("invalid_client"));
+
+        token("nosso-teto-web", "", "grant_type", "password", "username", email, "password", "senha123")
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("WWW-Authenticate", "Basic realm=\"nosso-teto\""))
+                .andExpect(jsonPath("$.error").value("invalid_client"));
+    }
+
+    @Test
+    void missingClientAuthenticationIs401WithoutWwwAuthenticate() throws Exception {
         mockMvc.perform(post("/oauth/token").contentType(MediaType.APPLICATION_FORM_URLENCODED)
                         .param("grant_type", "password").param("username", email).param("password", "senha123"))
                 .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist("WWW-Authenticate"))
                 .andExpect(jsonPath("$.error").value("invalid_client"));
     }
 
     @Test
     void wrongPasswordAndUnknownUserAre400InvalidGrant() throws Exception {
-        token("nosso-teto-web", "web-test-secret", "grant_type", "password", "username", email, "password", "errada")
+        publicToken("nosso-teto-web", "grant_type", "password", "username", email, "password", "errada")
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("invalid_grant"));
-        token("nosso-teto-web", "web-test-secret", "grant_type", "password", "username", "ghost@x.com", "password", "senha123")
+        publicToken("nosso-teto-web", "grant_type", "password", "username", "ghost@x.com", "password", "senha123")
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("invalid_grant"));
     }
 
     @Test
     void unsupportedAndMissingGrantType() throws Exception {
-        token("nosso-teto-web", "web-test-secret", "grant_type", "client_credentials")
+        publicToken("nosso-teto-web", "grant_type", "client_credentials")
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("unsupported_grant_type"));
-        token("nosso-teto-web", "web-test-secret")
+        publicToken("nosso-teto-web")
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("invalid_request"));
     }
 
@@ -180,7 +200,7 @@ class OAuthPasswordFlowIntegrationTest {
 
     @Test
     void legacyLoginRouteIsGoneEvenWithValidToken() throws Exception {
-        MvcResult tokenResult = token("nosso-teto-web", "web-test-secret",
+        MvcResult tokenResult = publicToken("nosso-teto-web",
                 "grant_type", "password", "username", email, "password", "senha123")
                 .andExpect(status().isOk())
                 .andReturn();
