@@ -1,11 +1,16 @@
 package com.nossoteto.controller;
 
 import com.nossoteto.dto.CreateHouseRequest;
+import com.nossoteto.dto.CreateRemovalRequestDto;
 import com.nossoteto.dto.HouseMemberSummaryDto;
 import com.nossoteto.dto.HouseResponse;
-import com.nossoteto.exception.ForbiddenOperationException;
+import com.nossoteto.dto.RemovalRequestResponse;
+import com.nossoteto.dto.VoteRequestDto;
+import com.nossoteto.dto.VoterSummaryDto;
+import com.nossoteto.model.enums.RemovalStatus;
 import com.nossoteto.model.enums.VotingRule;
 import com.nossoteto.service.HouseMembershipService;
+import com.nossoteto.service.HouseRemovalService;
 import com.nossoteto.service.HouseService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -18,13 +23,15 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -46,6 +53,9 @@ class HouseControllerTest {
 
     @MockBean
     private HouseMembershipService houseMembershipService;
+
+    @MockBean
+    private HouseRemovalService houseRemovalService;
 
     private UsernamePasswordAuthenticationToken auth(String userId) {
         return new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
@@ -181,28 +191,105 @@ class HouseControllerTest {
     }
 
     @Test
-    void leaveHouseShouldReturn204() throws Exception {
+    void updateMemberAdminStatusShouldAcceptIsAdminAndReturnIsHouseAdmin() throws Exception {
+        HouseMemberSummaryDto dto = new HouseMemberSummaryDto("user-2", "Bob", "bob@test.com", true);
+        when(houseMembershipService.updateMemberAdminStatus("admin-1", "house-1", "user-2", true))
+                .thenReturn(dto);
+
+        mockMvc.perform(put("/api/houses/house-1/members/user-2/admin")
+                        .principal(auth("admin-1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isAdmin\": true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("user-2"))
+                .andExpect(jsonPath("$.isHouseAdmin").value(true));
+
+        verify(houseMembershipService).updateMemberAdminStatus("admin-1", "house-1", "user-2", true);
+    }
+
+    @Test
+    void leaveHouseWithoutBodyShouldReturn204() throws Exception {
         mockMvc.perform(post("/api/houses/house-1/leave").principal(auth("user-1")))
                 .andExpect(status().isNoContent());
 
-        verify(houseMembershipService).leaveHouse("user-1", "house-1");
+        verify(houseMembershipService).leaveHouse("user-1", "house-1", null);
     }
 
     @Test
-    void removeMemberShouldReturn204() throws Exception {
-        mockMvc.perform(delete("/api/houses/house-1/members/user-2").principal(auth("admin-1")))
+    void leaveHouseWithNewAdminIdShouldDelegateToService() throws Exception {
+        mockMvc.perform(post("/api/houses/house-1/leave")
+                        .principal(auth("user-1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newAdminId\": \"user-2\"}"))
                 .andExpect(status().isNoContent());
 
-        verify(houseMembershipService).removeMember("admin-1", "house-1", "user-2");
+        verify(houseMembershipService).leaveHouse("user-1", "house-1", "user-2");
     }
 
     @Test
-    void removeMemberByNonAdminShouldReturn403() throws Exception {
-        doThrow(new ForbiddenOperationException("User is not an administrator of this house"))
-                .when(houseMembershipService).removeMember("user-3", "house-1", "user-2");
+    void createRemovalShouldReturn201() throws Exception {
+        RemovalRequestResponse resp = new RemovalRequestResponse(
+                "rem-1", "house-1", "user-2", "Bob", "admin-1", "Alice",
+                "Motivo", RemovalStatus.OPEN, LocalDateTime.of(2026, 11, 27, 12, 0), null,
+                List.of(), null, 0, 2);
+        when(houseRemovalService.createRemovalRequest(eq("admin-1"), eq("house-1"), any(CreateRemovalRequestDto.class)))
+                .thenReturn(resp);
 
-        mockMvc.perform(delete("/api/houses/house-1/members/user-2").principal(auth("user-3")))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("User is not an administrator of this house"));
+        mockMvc.perform(post("/api/houses/house-1/removals")
+                        .principal(auth("admin-1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberId\": \"user-2\", \"reason\": \"Motivo\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value("rem-1"))
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.votersTotal").value(2));
+    }
+
+    @Test
+    void listRemovalsShouldReturn200WithVotersWithoutDirection() throws Exception {
+        RemovalRequestResponse resp = new RemovalRequestResponse(
+                "rem-1", "house-1", "user-2", "Bob", "admin-1", "Alice",
+                null, RemovalStatus.OPEN, LocalDateTime.of(2026, 11, 27, 12, 0), null,
+                List.of(new VoterSummaryDto("admin-1", "Alice")), "APPROVE", 1, 2);
+        when(houseRemovalService.listOpenRemovals("admin-1", "house-1")).thenReturn(List.of(resp));
+
+        mockMvc.perform(get("/api/houses/house-1/removals").principal(auth("admin-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value("rem-1"))
+                .andExpect(jsonPath("$[0].voters[0].id").value("admin-1"))
+                .andExpect(jsonPath("$[0].voters[0].vote").doesNotExist())
+                .andExpect(jsonPath("$[0].myVote").value("APPROVE"));
+    }
+
+    @Test
+    void voteOnRemovalShouldReturn200() throws Exception {
+        RemovalRequestResponse resp = new RemovalRequestResponse(
+                "rem-1", "house-1", "user-2", "Bob", "admin-1", "Alice",
+                null, RemovalStatus.OPEN, LocalDateTime.of(2026, 11, 27, 12, 0), null,
+                List.of(new VoterSummaryDto("user-3", "Carla")), "APPROVE", 1, 2);
+        when(houseRemovalService.voteOnRemoval(eq("user-3"), eq("house-1"), eq("rem-1"), any(VoteRequestDto.class)))
+                .thenReturn(resp);
+
+        mockMvc.perform(post("/api/houses/house-1/removals/rem-1/vote")
+                        .principal(auth("user-3"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"vote\": \"APPROVE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.myVote").value("APPROVE"));
+    }
+
+    @Test
+    void cancelRemovalShouldReturn204() throws Exception {
+        mockMvc.perform(delete("/api/houses/house-1/removals/rem-1").principal(auth("admin-1")))
+                .andExpect(status().isNoContent());
+
+        verify(houseRemovalService).cancelRemovalRequest("admin-1", "house-1", "rem-1");
+    }
+
+    @Test
+    void directDeleteMemberEndpointShouldNoLongerExist() throws Exception {
+        mockMvc.perform(delete("/api/houses/house-1/members/user-2").principal(auth("admin-1")))
+                .andExpect(status().is(anyOf(is(404), is(405))));
     }
 }

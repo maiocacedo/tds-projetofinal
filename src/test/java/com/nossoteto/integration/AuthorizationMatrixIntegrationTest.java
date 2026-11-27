@@ -37,7 +37,6 @@ class AuthorizationMatrixIntegrationTest {
                 Arguments.of("GET", "/api/houses/h1", "ROLE_SEARCH_HOUSES", "read"),
                 Arguments.of("POST", "/api/houses", "ROLE_MANAGE_HOUSE", "write"),
                 Arguments.of("PUT", "/api/houses/h1", "ROLE_MANAGE_HOUSE", "write"),
-                Arguments.of("DELETE", "/api/houses/h1/members/u2", "ROLE_MANAGE_HOUSE", "write"),
                 Arguments.of("POST", "/api/matches/requests", "ROLE_MATCH", "write"),
                 Arguments.of("GET", "/api/houses/h1/matches", "ROLE_MATCH", "read"),
                 Arguments.of("POST", "/api/matches/requests/r1/vote", "ROLE_MATCH", "write"),
