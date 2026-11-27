@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,6 +48,15 @@ public class UserController {
             @RequestBody UserProfileDto dto) {
         String userId = extractUserId(authentication);
         return ResponseEntity.ok(userService.updateProfile(userId, dto));
+    }
+
+    @PostMapping("/me/welcome-ack")
+    // Only SCOPE_write (same pattern as leave): a user without ROLE_MANAGE_PROFILE must still be
+    // able to dismiss pendingWelcome.
+    @PreAuthorize("hasAuthority('SCOPE_write')")
+    public ResponseEntity<Void> acknowledgeWelcome(Authentication authentication) {
+        userService.acknowledgeWelcome(extractUserId(authentication));
+        return ResponseEntity.noContent().build();
     }
 
     private String extractUserId(Authentication authentication) {

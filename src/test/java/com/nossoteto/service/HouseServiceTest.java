@@ -324,4 +324,136 @@ class HouseServiceTest {
                 () -> houseService.updateHouse("user-2", "house-1", request));
         verifyNoInteractions(houseRepository);
     }
+
+    // ---------- B5: vagas independentes da pausa ----------
+
+    @Test
+    void createHouseShouldDefaultVacanciesToOneWhenOmitted() {
+        User creator = new User();
+        creator.setId("user-1");
+        when(houseAccessValidator.requireAuthenticatedUser("user-1")).thenReturn(creator);
+        when(houseRepository.save(any(House.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findByHouseIdOrderByIdAsc(anyString())).thenReturn(List.of(creator));
+
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setName("Solar");
+
+        HouseResponse response = houseService.createHouse("user-1", request);
+
+        assertEquals(1, response.getVacancies());
+        ArgumentCaptor<House> captor = ArgumentCaptor.forClass(House.class);
+        verify(houseRepository).save(captor.capture());
+        assertEquals(1, captor.getValue().getVacancies());
+    }
+
+    @Test
+    void createHouseShouldPersistExplicitVacanciesIncludingZero() {
+        User creator = new User();
+        creator.setId("user-1");
+        when(houseAccessValidator.requireAuthenticatedUser("user-1")).thenReturn(creator);
+        when(houseRepository.save(any(House.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findByHouseIdOrderByIdAsc(anyString())).thenReturn(List.of(creator));
+
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setName("Solar");
+        request.setVacancies(0);
+
+        HouseResponse response = houseService.createHouse("user-1", request);
+
+        assertEquals(0, response.getVacancies());
+        assertTrue(response.getIsAcceptingMatches(), "vacancies and pause are independent");
+    }
+
+    @Test
+    void createHouseShouldRejectNegativeVacancies() {
+        User creator = new User();
+        creator.setId("user-1");
+        when(houseAccessValidator.requireAuthenticatedUser("user-1")).thenReturn(creator);
+
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setName("Solar");
+        request.setVacancies(-1);
+
+        assertThrows(BusinessRuleException.class, () -> houseService.createHouse("user-1", request));
+        verifyNoInteractions(houseRepository);
+    }
+
+    @Test
+    void updateHouseShouldRejectNegativeVacancies() {
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setVacancies(-2);
+
+        assertThrows(BusinessRuleException.class,
+                () -> houseService.updateHouse("admin-1", "house-1", request));
+        verify(houseRepository, never()).save(any());
+    }
+
+    @Test
+    void updateHouseShouldSetVacanciesWithoutChangingIsAcceptingMatches() {
+        House house = new House();
+        house.setId("house-1");
+        house.setName("Solar");
+        house.setIsAcceptingMatches(true);
+        house.setVacancies(2);
+
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(houseRepository.save(any(House.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of());
+
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setVacancies(0);
+
+        HouseResponse response = houseService.updateHouse("admin-1", "house-1", request);
+
+        assertEquals(0, response.getVacancies());
+        assertTrue(response.getIsAcceptingMatches());
+        assertEquals(0, house.getVacancies());
+    }
+
+    @Test
+    void updateHouseShouldKeepVacanciesWhenOmitted() {
+        House house = new House();
+        house.setId("house-1");
+        house.setName("Solar");
+        house.setVacancies(3);
+
+        when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
+        when(houseRepository.save(any(House.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of());
+
+        CreateHouseRequest request = new CreateHouseRequest();
+        request.setIsAcceptingMatches(false);
+
+        HouseResponse response = houseService.updateHouse("admin-1", "house-1", request);
+
+        assertEquals(3, response.getVacancies());
+        assertFalse(response.getIsAcceptingMatches());
+    }
+
+    @Test
+    void listOpenHousesShouldHideHousesWithoutVacancies() {
+        House withVacancy = new House();
+        withVacancy.setId("house-1");
+        withVacancy.setIsAcceptingMatches(true);
+        withVacancy.setVacancies(2);
+
+        House full = new House();
+        full.setId("house-2");
+        full.setIsAcceptingMatches(true);
+        full.setVacancies(0);
+
+        House unknown = new House();
+        unknown.setId("house-3");
+        unknown.setIsAcceptingMatches(true);
+        unknown.setVacancies(null);
+
+        when(houseRepository.findByIsAcceptingMatchesTrue()).thenReturn(List.of(withVacancy, full, unknown));
+        when(userRepository.findByHouseIdOrderByIdAsc("house-1")).thenReturn(List.of());
+
+        List<HouseResponse> result = houseService.listOpenHouses(null, null, null, null);
+
+        assertEquals(1, result.size());
+        assertEquals("house-1", result.get(0).getId());
+        assertEquals(2, result.get(0).getVacancies());
+    }
 }

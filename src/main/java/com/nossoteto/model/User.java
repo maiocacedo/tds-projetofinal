@@ -34,6 +34,10 @@ public class User {
     @Column(name = "is_house_admin")
     private Boolean isHouseAdmin = false;
 
+    // Set when a match is accepted; cleared by POST /api/users/me/welcome-ack or cancel-others.
+    @Column(name = "pending_welcome", nullable = false)
+    private Boolean pendingWelcome = false;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -66,6 +70,9 @@ public class User {
 
     public Boolean getIsHouseAdmin() { return isHouseAdmin; }
     public void setIsHouseAdmin(Boolean isHouseAdmin) { this.isHouseAdmin = isHouseAdmin; }
+
+    public Boolean getPendingWelcome() { return pendingWelcome; }
+    public void setPendingWelcome(Boolean pendingWelcome) { this.pendingWelcome = pendingWelcome; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

@@ -3,6 +3,7 @@ package com.nossoteto.dto;
 import com.nossoteto.model.enums.MatchStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class MatchRequestResponse {
 
@@ -15,6 +16,10 @@ public class MatchRequestResponse {
     private Integer compatibilityScore;
     private UserProfileDto userProfile;
     private LocalDateTime createdAt;
+    // Filled by GET /api/houses/{id}/matches only.
+    private CandidateCardDto candidate;
+    private List<VoterSummaryDto> voters;
+    private String myVote;
 
     public MatchRequestResponse() {}
 
@@ -44,4 +49,13 @@ public class MatchRequestResponse {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public CandidateCardDto getCandidate() { return candidate; }
+    public void setCandidate(CandidateCardDto candidate) { this.candidate = candidate; }
+
+    public List<VoterSummaryDto> getVoters() { return voters; }
+    public void setVoters(List<VoterSummaryDto> voters) { this.voters = voters; }
+
+    public String getMyVote() { return myVote; }
+    public void setMyVote(String myVote) { this.myVote = myVote; }
 }

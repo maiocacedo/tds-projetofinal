@@ -72,6 +72,7 @@ public class HouseService {
         house.setVotingRule(request.getVotingRule() != null ? request.getVotingRule() : VotingRule.UNANIMITY);
         house.setIsAcceptingMatches(
                 request.getIsAcceptingMatches() != null ? request.getIsAcceptingMatches() : true);
+        house.setVacancies(request.getVacancies() != null ? request.getVacancies() : 1);
 
         House savedHouse = houseRepository.save(house);
 
@@ -115,6 +116,8 @@ public class HouseService {
         if (request.getHasFurniture() != null) house.setHasFurniture(request.getHasFurniture());
         if (request.getVotingRule() != null) house.setVotingRule(request.getVotingRule());
         if (request.getIsAcceptingMatches() != null) house.setIsAcceptingMatches(request.getIsAcceptingMatches());
+        // Changing vacancies never pauses/unpauses the house: the two settings are independent.
+        if (request.getVacancies() != null) house.setVacancies(request.getVacancies());
 
         House saved = houseRepository.save(house);
         return HouseResponse.fromEntity(saved, null, loadMembers(houseId, true));
@@ -130,6 +133,7 @@ public class HouseService {
         String viewerHouseId = findViewerHouseId(userId);
 
         return houseRepository.findByIsAcceptingMatchesTrue().stream()
+                .filter(house -> house.getVacancies() != null && house.getVacancies() > 0)
                 .filter(house -> maxRent == null
                         || house.getRentAmount() == null
                         || house.getRentAmount().compareTo(maxRent) <= 0)
@@ -176,6 +180,9 @@ public class HouseService {
     private void validateHouseAttributes(CreateHouseRequest request) {
         if (request.getRentAmount() != null && request.getRentAmount().compareTo(BigDecimal.ZERO) < 0) {
             throw new BusinessRuleException("Rent amount cannot be negative");
+        }
+        if (request.getVacancies() != null && request.getVacancies() < 0) {
+            throw new BusinessRuleException("vacancies cannot be negative");
         }
         validateScale(request.getExpectedOrganizationLevel(), "expectedOrganizationLevel");
         validateScale(request.getVisitorTolerance(), "visitorTolerance");

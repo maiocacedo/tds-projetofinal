@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -73,7 +74,8 @@ class UserControllerTest {
                 true,
                 List.of("ROLE_MANAGE_HOUSE", "ROLE_MANAGE_PROFILE"),
                 new PointsSummaryDto(45, 20),
-                3
+                3,
+                false
         );
 
         when(userService.getCurrentUser("user-1")).thenReturn(response);
@@ -92,6 +94,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.points.total").value(45))
                 .andExpect(jsonPath("$.points.thisMonth").value(20))
                 .andExpect(jsonPath("$.residenceMonths").value(3))
+                .andExpect(jsonPath("$.pendingWelcome").value(false))
                 .andExpect(jsonPath("$.profile.budget").value(1400.00))
                 .andExpect(jsonPath("$.profile.hasPets").value(true))
                 .andExpect(jsonPath("$.profile.organizationLevel").value(4));
@@ -110,7 +113,8 @@ class UserControllerTest {
                 false,
                 List.of("ROLE_MANAGE_PROFILE"),
                 new PointsSummaryDto(0, 0),
-                null
+                null,
+                false
         );
 
         when(userService.getCurrentUser("user-2")).thenReturn(response);
@@ -228,5 +232,28 @@ class UserControllerTest {
         mockMvc.perform(get("/api/users/me").principal(auth("user-1")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("resource conflict"));
+    }
+
+    // ---------- B5: boas-vindas ----------
+
+    @Test
+    void getMeShouldSerializePendingWelcome() throws Exception {
+        UserMeResponse response = new UserMeResponse(
+                "user-3", "Carol", "carol@test.com", "house-1", false, "Solar", null, false,
+                List.of("ROLE_MANAGE_PROFILE"), new PointsSummaryDto(0, 0), 0, true);
+
+        when(userService.getCurrentUser("user-3")).thenReturn(response);
+
+        mockMvc.perform(get("/api/users/me").principal(auth("user-3")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pendingWelcome").value(true));
+    }
+
+    @Test
+    void welcomeAckShouldReturn204AndDelegateToService() throws Exception {
+        mockMvc.perform(post("/api/users/me/welcome-ack").principal(auth("user-1")))
+                .andExpect(status().isNoContent());
+
+        verify(userService).acknowledgeWelcome("user-1");
     }
 }

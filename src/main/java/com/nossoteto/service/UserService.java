@@ -67,8 +67,16 @@ public class UserService {
                 profileComplete,
                 permissions,
                 points,
-                residenceMonths
+                residenceMonths,
+                Boolean.TRUE.equals(user.getPendingWelcome())
         );
+    }
+
+    @Transactional
+    public void acknowledgeWelcome(String userId) {
+        User user = houseAccessValidator.requireAuthenticatedUser(userId);
+        user.setPendingWelcome(false);
+        userRepository.save(user);
     }
 
     @Transactional
