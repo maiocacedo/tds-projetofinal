@@ -35,8 +35,14 @@ public class ClientAuthenticator {
             if (!seenIds.add(client.clientId())) {
                 throw new IllegalStateException("Duplicate OAuth client id: " + client.clientId());
             }
-            if (client.clientSecret() == null || client.clientSecret().isBlank()) {
-                throw new IllegalStateException("OAuth client '" + client.clientId() + "' must define a non-blank clientSecret");
+            if (client.publicClient()) {
+                if (client.clientSecret() != null && !client.clientSecret().isBlank()) {
+                    throw new IllegalStateException("Public OAuth client '" + client.clientId() + "' must not define a clientSecret");
+                }
+            } else {
+                if (client.clientSecret() == null || client.clientSecret().isBlank()) {
+                    throw new IllegalStateException("OAuth client '" + client.clientId() + "' must define a non-blank clientSecret");
+                }
             }
             if (client.scopes() == null || client.scopes().isEmpty()
                     || client.scopes().stream().anyMatch(s -> s == null || s.isBlank())) {
@@ -47,8 +53,28 @@ public class ClientAuthenticator {
                 .collect(Collectors.toUnmodifiableMap(SecurityProperties.Client::clientId, Function.identity()));
     }
 
-    public SecurityProperties.Client authenticate(String authorizationHeader) {
-        if (authorizationHeader == null || !authorizationHeader.regionMatches(true, 0, "Basic ", 0, 6)) {
+    public SecurityProperties.Client authenticate(String authorizationHeader, String bodyClientId) {
+        boolean hasAuthHeader = authorizationHeader != null && !authorizationHeader.isBlank();
+        boolean hasBodyClientId = bodyClientId != null && !bodyClientId.isBlank();
+
+        if (hasAuthHeader && hasBodyClientId) {
+            throw OAuthException.invalidRequest("Client must not use more than one authentication method");
+        }
+        if (hasBodyClientId) {
+            SecurityProperties.Client client = clients.get(bodyClientId);
+            if (client == null || !client.publicClient()) {
+                throw OAuthException.invalidClient();
+            }
+            return client;
+        }
+        if (hasAuthHeader) {
+            return authenticateBasic(authorizationHeader);
+        }
+        throw OAuthException.invalidClient();
+    }
+
+    private SecurityProperties.Client authenticateBasic(String authorizationHeader) {
+        if (!authorizationHeader.regionMatches(true, 0, "Basic ", 0, 6)) {
             throw OAuthException.invalidClient();
         }
         String decoded;
@@ -63,10 +89,12 @@ public class ClientAuthenticator {
         }
         SecurityProperties.Client client = clients.get(decoded.substring(0, separator));
         String presented = decoded.substring(separator + 1);
-        String expected = client != null ? client.clientSecret() : "";
+        String expected = (client != null && !client.publicClient() && client.clientSecret() != null)
+                ? client.clientSecret()
+                : "";
         boolean secretMatches = MessageDigest.isEqual(
                 expected.getBytes(StandardCharsets.UTF_8), presented.getBytes(StandardCharsets.UTF_8));
-        if (client == null || !secretMatches) {
+        if (client == null || client.publicClient() || !secretMatches) {
             throw OAuthException.invalidClient();
         }
         return client;

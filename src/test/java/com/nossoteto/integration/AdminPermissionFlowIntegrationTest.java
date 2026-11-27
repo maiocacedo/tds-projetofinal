@@ -24,7 +24,6 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -40,8 +39,9 @@ class AdminPermissionFlowIntegrationTest {
     @Autowired private PasswordEncoder passwordEncoder;
 
     private MvcResult login(String email, String password) throws Exception {
-        return mockMvc.perform(post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
+        return mockMvc.perform(post("/oauth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .param("grant_type", "password").param("username", email).param("password", password))
                 .andExpect(status().isOk()).andReturn();
     }
@@ -74,8 +74,10 @@ class AdminPermissionFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.permissions", not(hasItem("ROLE_MANAGE_HOUSE"))));
 
-        MvcResult refreshed = mockMvc.perform(post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
-                        .contentType(MediaType.APPLICATION_FORM_URLENCODED).param("grant_type", "refresh_token")
+        MvcResult refreshed = mockMvc.perform(post("/oauth/token")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
+                        .param("grant_type", "refresh_token")
                         .cookie(userCookie))
                 .andExpect(status().isOk()).andReturn();
 
@@ -164,8 +166,9 @@ class AdminPermissionFlowIntegrationTest {
         assertEquals(permissionsBefore, new HashSet<>(permissionsAfter));
         assertEquals(hashBefore, userRepository.findByEmail(email).orElseThrow().getPasswordHash());
 
-        mockMvc.perform(post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
+        mockMvc.perform(post("/oauth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .param("grant_type", "password").param("username", email).param("password", "pw-do-operador"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("invalid_grant"));
