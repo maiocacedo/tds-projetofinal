@@ -1,8 +1,15 @@
 package com.nossoteto.controller;
 
 import com.nossoteto.dto.CreateHouseRequest;
+import com.nossoteto.dto.CreateRemovalRequestDto;
+import com.nossoteto.dto.HouseMemberSummaryDto;
 import com.nossoteto.dto.HouseResponse;
+import com.nossoteto.dto.LeaveHouseRequest;
+import com.nossoteto.dto.RemovalRequestResponse;
+import com.nossoteto.dto.UpdateAdminStatusRequest;
+import com.nossoteto.dto.VoteRequestDto;
 import com.nossoteto.service.HouseMembershipService;
+import com.nossoteto.service.HouseRemovalService;
 import com.nossoteto.service.HouseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,10 +34,14 @@ public class HouseController {
 
     private final HouseService houseService;
     private final HouseMembershipService houseMembershipService;
+    private final HouseRemovalService houseRemovalService;
 
-    public HouseController(HouseService houseService, HouseMembershipService houseMembershipService) {
+    public HouseController(HouseService houseService,
+                           HouseMembershipService houseMembershipService,
+                           HouseRemovalService houseRemovalService) {
         this.houseService = houseService;
         this.houseMembershipService = houseMembershipService;
+        this.houseRemovalService = houseRemovalService;
     }
 
     @PostMapping
@@ -85,24 +96,69 @@ public class HouseController {
         return ResponseEntity.ok(houseService.updateHouse(userId, id, request));
     }
 
+    @PutMapping("/{id}/members/{memberId}/admin")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_HOUSE') and hasAuthority('SCOPE_write')")
+    public ResponseEntity<HouseMemberSummaryDto> updateMemberAdminStatus(
+            Authentication authentication,
+            @PathVariable String id,
+            @PathVariable String memberId,
+            @RequestBody(required = false) UpdateAdminStatusRequest request) {
+        String userId = extractUserId(authentication);
+        Boolean isAdmin = request != null ? request.getIsAdmin() : null;
+        return ResponseEntity.ok(houseMembershipService.updateMemberAdminStatus(userId, id, memberId, isAdmin));
+    }
+
     @PostMapping("/{id}/leave")
     @PreAuthorize("hasAuthority('SCOPE_write')")
     public ResponseEntity<Void> leaveHouse(
             Authentication authentication,
-            @PathVariable String id) {
+            @PathVariable String id,
+            @RequestBody(required = false) LeaveHouseRequest request) {
         String userId = extractUserId(authentication);
-        houseMembershipService.leaveHouse(userId, id);
+        String newAdminId = request != null ? request.getNewAdminId() : null;
+        houseMembershipService.leaveHouse(userId, id, newAdminId);
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/{id}/members/{memberId}")
+    @PostMapping("/{id}/removals")
     @PreAuthorize("hasAuthority('ROLE_MANAGE_HOUSE') and hasAuthority('SCOPE_write')")
-    public ResponseEntity<Void> removeMember(
+    public ResponseEntity<RemovalRequestResponse> createRemovalRequest(
             Authentication authentication,
             @PathVariable String id,
-            @PathVariable String memberId) {
+            @RequestBody(required = false) CreateRemovalRequestDto request) {
         String userId = extractUserId(authentication);
-        houseMembershipService.removeMember(userId, id, memberId);
+        RemovalRequestResponse created = houseRemovalService.createRemovalRequest(userId, id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @GetMapping("/{id}/removals")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_HOUSE') and hasAuthority('SCOPE_read')")
+    public ResponseEntity<List<RemovalRequestResponse>> listOpenRemovals(
+            Authentication authentication,
+            @PathVariable String id) {
+        String userId = extractUserId(authentication);
+        return ResponseEntity.ok(houseRemovalService.listOpenRemovals(userId, id));
+    }
+
+    @PostMapping("/{id}/removals/{removalId}/vote")
+    @PreAuthorize("hasAuthority('SCOPE_write')")
+    public ResponseEntity<RemovalRequestResponse> voteOnRemoval(
+            Authentication authentication,
+            @PathVariable String id,
+            @PathVariable String removalId,
+            @RequestBody(required = false) VoteRequestDto request) {
+        String userId = extractUserId(authentication);
+        return ResponseEntity.ok(houseRemovalService.voteOnRemoval(userId, id, removalId, request));
+    }
+
+    @DeleteMapping("/{id}/removals/{removalId}")
+    @PreAuthorize("hasAuthority('ROLE_MANAGE_HOUSE') and hasAuthority('SCOPE_write')")
+    public ResponseEntity<Void> cancelRemovalRequest(
+            Authentication authentication,
+            @PathVariable String id,
+            @PathVariable String removalId) {
+        String userId = extractUserId(authentication);
+        houseRemovalService.cancelRemovalRequest(userId, id, removalId);
         return ResponseEntity.noContent().build();
     }
 
