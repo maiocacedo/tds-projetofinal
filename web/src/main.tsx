@@ -1,5 +1,6 @@
 import '@fontsource-variable/bricolage-grotesque';
 import './styles/theme.css';
+import './styles/motion.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
