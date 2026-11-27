@@ -7,8 +7,17 @@ import org.springframework.stereotype.Component;
 @Component
 public class CompatibilityCalculator {
 
+    public static boolean isProfileComplete(UserProfile profile) {
+        return profile != null
+                && profile.getBudget() != null
+                && profile.getHasPets() != null
+                && profile.getIsSmoker() != null
+                && profile.getOrganizationLevel() != null
+                && profile.getVisitorTolerance() != null;
+    }
+
     public Integer calculateScore(UserProfile profile, House house) {
-        if (profile == null || house == null) {
+        if (house == null || !isProfileComplete(profile)) {
             return null;
         }
 

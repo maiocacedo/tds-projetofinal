@@ -1,5 +1,6 @@
 package com.nossoteto.service;
 
+import com.nossoteto.dto.PointsSummaryDto;
 import com.nossoteto.dto.UserMeResponse;
 import com.nossoteto.dto.UserProfileDto;
 import com.nossoteto.exception.BusinessRuleException;
@@ -8,6 +9,7 @@ import com.nossoteto.model.User;
 import com.nossoteto.model.UserProfile;
 import com.nossoteto.repository.HouseRepository;
 import com.nossoteto.repository.UserProfileRepository;
+import com.nossoteto.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,11 +37,27 @@ class UserServiceTest {
     @Mock
     private UserProfileRepository userProfileRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private PointService pointService;
+
+    @Mock
+    private ResidenceHistoryService residenceHistoryService;
+
     private UserService userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(houseAccessValidator, houseRepository, userProfileRepository);
+        userService = new UserService(
+                houseAccessValidator,
+                houseRepository,
+                userProfileRepository,
+                userRepository,
+                pointService,
+                residenceHistoryService
+        );
     }
 
     @Test
@@ -69,6 +88,10 @@ class UserServiceTest {
         when(houseAccessValidator.requireAuthenticatedUser("user-1")).thenReturn(user);
         when(houseRepository.findById("house-1")).thenReturn(Optional.of(house));
         when(userProfileRepository.findById("user-1")).thenReturn(Optional.of(profile));
+        when(userRepository.findPermissionNamesByUserId("user-1"))
+                .thenReturn(List.of("ROLE_MATCH", "ROLE_MANAGE_HOUSE", "ROLE_MANAGE_PROFILE"));
+        when(pointService.getUserPointsSummary("user-1")).thenReturn(new PointsSummaryDto(45, 20));
+        when(residenceHistoryService.calculateTotalResidenceMonths("user-1")).thenReturn(4);
 
         UserMeResponse response = userService.getCurrentUser("user-1");
 
@@ -78,6 +101,10 @@ class UserServiceTest {
         assertEquals("house-1", response.getHouseId());
         assertTrue(response.getIsHouseAdmin());
         assertEquals("República Solar", response.getHouseName());
+        assertTrue(response.isProfileComplete());
+        assertEquals(List.of("ROLE_MANAGE_HOUSE", "ROLE_MANAGE_PROFILE", "ROLE_MATCH"), response.getPermissions());
+        assertEquals(new PointsSummaryDto(45, 20), response.getPoints());
+        assertEquals(4, response.getResidenceMonths());
         assertNotNull(response.getProfile());
         assertEquals(new BigDecimal("1500.00"), response.getProfile().getBudget());
         assertTrue(response.getProfile().getHasPets());
@@ -101,6 +128,9 @@ class UserServiceTest {
 
         when(houseAccessValidator.requireAuthenticatedUser("user-2")).thenReturn(user);
         when(userProfileRepository.findById("user-2")).thenReturn(Optional.empty());
+        when(userRepository.findPermissionNamesByUserId("user-2")).thenReturn(List.of());
+        when(pointService.getUserPointsSummary("user-2")).thenReturn(new PointsSummaryDto(0, 0));
+        when(residenceHistoryService.calculateTotalResidenceMonths("user-2")).thenReturn(null);
 
         UserMeResponse response = userService.getCurrentUser("user-2");
 
@@ -108,7 +138,39 @@ class UserServiceTest {
         assertNull(response.getHouseId());
         assertNull(response.getHouseName());
         assertNull(response.getProfile());
+        assertFalse(response.isProfileComplete());
+        assertEquals(List.of(), response.getPermissions());
+        assertEquals(new PointsSummaryDto(0, 0), response.getPoints());
+        assertNull(response.getResidenceMonths());
         verifyNoInteractions(houseRepository);
+    }
+
+    @Test
+    void getCurrentUserShouldMarkProfileIncompleteWhenRequiredFieldIsMissing() {
+        User user = new User();
+        user.setId("user-3");
+        user.setName("Clara");
+        user.setEmail("clara@test.com");
+        user.setIsHouseAdmin(false);
+
+        UserProfile incomplete = new UserProfile();
+        incomplete.setUserId("user-3");
+        incomplete.setBudget(new BigDecimal("1000.00"));
+        incomplete.setHasPets(false);
+        incomplete.setIsSmoker(false);
+        incomplete.setOrganizationLevel(4);
+        incomplete.setVisitorTolerance(null);
+
+        when(houseAccessValidator.requireAuthenticatedUser("user-3")).thenReturn(user);
+        when(userProfileRepository.findById("user-3")).thenReturn(Optional.of(incomplete));
+        when(userRepository.findPermissionNamesByUserId("user-3")).thenReturn(List.of("ROLE_MANAGE_PROFILE"));
+        when(pointService.getUserPointsSummary("user-3")).thenReturn(new PointsSummaryDto(0, 0));
+        when(residenceHistoryService.calculateTotalResidenceMonths("user-3")).thenReturn(0);
+
+        UserMeResponse response = userService.getCurrentUser("user-3");
+
+        assertFalse(response.isProfileComplete());
+        assertEquals(0, response.getResidenceMonths());
     }
 
     @Test

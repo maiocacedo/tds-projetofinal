@@ -1,5 +1,6 @@
 package com.nossoteto.service;
 
+import com.nossoteto.dto.PointsSummaryDto;
 import com.nossoteto.dto.UserMeResponse;
 import com.nossoteto.dto.UserProfileDto;
 import com.nossoteto.exception.BusinessRuleException;
@@ -8,8 +9,11 @@ import com.nossoteto.model.User;
 import com.nossoteto.model.UserProfile;
 import com.nossoteto.repository.HouseRepository;
 import com.nossoteto.repository.UserProfileRepository;
+import com.nossoteto.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class UserService {
@@ -17,15 +21,25 @@ public class UserService {
     private final HouseAccessValidator houseAccessValidator;
     private final HouseRepository houseRepository;
     private final UserProfileRepository userProfileRepository;
+    private final UserRepository userRepository;
+    private final PointService pointService;
+    private final ResidenceHistoryService residenceHistoryService;
 
     public UserService(HouseAccessValidator houseAccessValidator,
                        HouseRepository houseRepository,
-                       UserProfileRepository userProfileRepository) {
+                       UserProfileRepository userProfileRepository,
+                       UserRepository userRepository,
+                       PointService pointService,
+                       ResidenceHistoryService residenceHistoryService) {
         this.houseAccessValidator = houseAccessValidator;
         this.houseRepository = houseRepository;
         this.userProfileRepository = userProfileRepository;
+        this.userRepository = userRepository;
+        this.pointService = pointService;
+        this.residenceHistoryService = residenceHistoryService;
     }
 
+    @Transactional(readOnly = true)
     public UserMeResponse getCurrentUser(String userId) {
         User user = houseAccessValidator.requireAuthenticatedUser(userId);
         String houseName = null;
@@ -35,6 +49,13 @@ public class UserService {
                     .orElse(null);
         }
         UserProfile profile = userProfileRepository.findById(userId).orElse(null);
+        boolean profileComplete = CompatibilityCalculator.isProfileComplete(profile);
+        List<String> rawPermissions = userRepository.findPermissionNamesByUserId(userId);
+        List<String> permissions = rawPermissions == null
+                ? List.of()
+                : rawPermissions.stream().sorted().toList();
+        PointsSummaryDto points = pointService.getUserPointsSummary(userId);
+        Integer residenceMonths = residenceHistoryService.calculateTotalResidenceMonths(userId);
         return new UserMeResponse(
                 user.getId(),
                 user.getName(),
@@ -42,7 +63,11 @@ public class UserService {
                 user.getHouseId(),
                 user.getIsHouseAdmin(),
                 houseName,
-                UserProfileDto.fromEntity(profile)
+                UserProfileDto.fromEntity(profile),
+                profileComplete,
+                permissions,
+                points,
+                residenceMonths
         );
     }
 
