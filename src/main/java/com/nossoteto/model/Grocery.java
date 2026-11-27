@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "groceries")
 public class Grocery {
@@ -27,6 +29,18 @@ public class Grocery {
     @Column(name = "is_purchased", nullable = false)
     private Boolean isPurchased = false;
 
+    @Column(name = "created_by_id")
+    private String createdById;
+
+    @Column(name = "purchased_by_id")
+    private String purchasedById;
+
+    @Column(name = "purchased_at")
+    private LocalDateTime purchasedAt;
+
+    @Column(name = "previous_assignee_id")
+    private String previousAssigneeId;
+
     public Grocery() {}
 
     public String getId() { return id; }
@@ -46,4 +60,16 @@ public class Grocery {
 
     public Boolean getIsPurchased() { return isPurchased; }
     public void setIsPurchased(Boolean isPurchased) { this.isPurchased = isPurchased; }
+
+    public String getCreatedById() { return createdById; }
+    public void setCreatedById(String createdById) { this.createdById = createdById; }
+
+    public String getPurchasedById() { return purchasedById; }
+    public void setPurchasedById(String purchasedById) { this.purchasedById = purchasedById; }
+
+    public LocalDateTime getPurchasedAt() { return purchasedAt; }
+    public void setPurchasedAt(LocalDateTime purchasedAt) { this.purchasedAt = purchasedAt; }
+
+    public String getPreviousAssigneeId() { return previousAssigneeId; }
+    public void setPreviousAssigneeId(String previousAssigneeId) { this.previousAssigneeId = previousAssigneeId; }
 }
