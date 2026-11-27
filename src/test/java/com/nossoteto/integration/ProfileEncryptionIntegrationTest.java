@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -33,8 +32,9 @@ class ProfileEncryptionIntegrationTest {
                         .content("{\"nome\":\"C\",\"email\":\"" + email + "\",\"senha\":\"senha123\"}"))
                 .andExpect(status().isCreated()).andReturn();
         String userId = objectMapper.readTree(reg.getResponse().getContentAsString()).get("id").asText();
-        MvcResult login = mockMvc.perform(post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
+        MvcResult login = mockMvc.perform(post("/oauth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .param("grant_type", "password").param("username", email).param("password", "senha123"))
                 .andExpect(status().isOk()).andReturn();
         String token = objectMapper.readTree(login.getResponse().getContentAsString()).get("access_token").asText();
@@ -81,8 +81,9 @@ class ProfileEncryptionIntegrationTest {
                         .content("{\"nome\":\"LargeBio\",\"email\":\"" + email + "\",\"senha\":\"senha123\"}"))
                 .andExpect(status().isCreated()).andReturn();
         String userId = objectMapper.readTree(reg.getResponse().getContentAsString()).get("id").asText();
-        MvcResult login = mockMvc.perform(post("/oauth/token").with(httpBasic("nosso-teto-web", "web-test-secret"))
+        MvcResult login = mockMvc.perform(post("/oauth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", "nosso-teto-web")
                         .param("grant_type", "password").param("username", email).param("password", "senha123"))
                 .andExpect(status().isOk()).andReturn();
         String token = objectMapper.readTree(login.getResponse().getContentAsString()).get("access_token").asText();

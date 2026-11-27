@@ -31,6 +31,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", message));
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Map<String, String>> handleConflict(ConflictException ex) {
+        String message = ex.getMessage() != null ? ex.getMessage() : "Conflict";
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", message));
+    }
+
     @ExceptionHandler({BusinessRuleException.class, IllegalArgumentException.class})
     public ResponseEntity<Map<String, String>> handleBadRequest(RuntimeException ex) {
         String message = ex.getMessage() != null ? ex.getMessage() : "Bad request";
