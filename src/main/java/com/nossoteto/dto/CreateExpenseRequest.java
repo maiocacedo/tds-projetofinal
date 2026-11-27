@@ -19,6 +19,15 @@ public class CreateExpenseRequest {
     @JsonAlias("anexoBase64")
     private String attachmentBase64;
 
+    @JsonAlias("pagoPorId")
+    private String paidById;
+
+    @JsonAlias("diaRecorrencia")
+    private Integer recurringDay;
+
+    @JsonAlias("recorrenciaAtiva")
+    private Boolean recurrenceActive = false;
+
     public CreateExpenseRequest() {}
 
     public String getTitle() { return title; }
@@ -32,4 +41,13 @@ public class CreateExpenseRequest {
 
     public String getAttachmentBase64() { return attachmentBase64; }
     public void setAttachmentBase64(String attachmentBase64) { this.attachmentBase64 = attachmentBase64; }
+
+    public String getPaidById() { return paidById; }
+    public void setPaidById(String paidById) { this.paidById = paidById; }
+
+    public Integer getRecurringDay() { return recurringDay; }
+    public void setRecurringDay(Integer recurringDay) { this.recurringDay = recurringDay; }
+
+    public Boolean getRecurrenceActive() { return recurrenceActive; }
+    public void setRecurrenceActive(Boolean recurrenceActive) { this.recurrenceActive = recurrenceActive; }
 }
