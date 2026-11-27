@@ -1,0 +1,623 @@
+/* Movimento do Design System Nosso Teto
+ * Keyframes fiéis aos protótipos (E-splash-vermelha, E-sobre, M-candidato, K-mercado, T-semana)
+ * com alternativa completa em @media (prefers-reduced-motion: reduce).
+ */
+
+/* --- Splash vermelha: desenho do telhado, parede, porta e saída --- */
+@keyframes nt-telhado-desenho {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes nt-parede-desenho {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes nt-porta-folha {
+  0% {
+    transform: scaleX(1) skewY(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(0) skewY(15deg);
+    opacity: 0;
+  }
+}
+
+@keyframes nt-feixe-luz {
+  0% {
+    opacity: 0;
+    transform: translateX(6px) scale(0.12, 0.5);
+  }
+  65% {
+    opacity: 1;
+    transform: translateX(0) scale(1, 1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(0) scale(1.12, 1.04);
+  }
+}
+
+@keyframes nt-sair-splash {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(14);
+    opacity: 0.92;
+  }
+  100% {
+    transform: scale(26);
+    opacity: 0;
+  }
+}
+
+@keyframes nt-casa-geleia {
+  0% {
+    transform: scale(1, 1) skewX(0deg);
+  }
+  22% {
+    transform: scale(1.24, 0.8) skewX(-1.5deg);
+  }
+  46% {
+    transform: scale(0.91, 1.12) skewX(1.1deg);
+  }
+  70% {
+    transform: scale(1.05, 0.955) skewX(-0.45deg);
+  }
+  100% {
+    transform: scale(1, 1) skewX(0deg);
+  }
+}
+
+/* --- Entradas e reveal no scroll --- */
+@keyframes nt-entrada-sobe {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes nt-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- Geleia de seleção (duas versões idênticas para reiniciar a cada troca) --- */
+@keyframes nt-geleia {
+  0% {
+    transform: scale(1, 1);
+  }
+  22% {
+    transform: scale(1.3, 0.8);
+  }
+  45% {
+    transform: scale(0.9, 1.1);
+  }
+  68% {
+    transform: scale(1.05, 0.96);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes nt-geleia-a {
+  0% {
+    transform: scale(1, 1);
+  }
+  22% {
+    transform: scale(1.3, 0.8);
+  }
+  45% {
+    transform: scale(0.9, 1.1);
+  }
+  68% {
+    transform: scale(1.05, 0.96);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes nt-geleia-b {
+  0% {
+    transform: scale(1, 1);
+  }
+  22% {
+    transform: scale(1.3, 0.8);
+  }
+  45% {
+    transform: scale(0.9, 1.1);
+  }
+  68% {
+    transform: scale(1.05, 0.96);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+/* --- Contador (número faz geleia ao mudar) --- */
+@keyframes nt-num-a {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.35, 0.75);
+  }
+  55% {
+    transform: scale(0.9, 1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes nt-num-b {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.35, 0.75);
+  }
+  55% {
+    transform: scale(0.9, 1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* --- Comemoração (confetes, raios, pouso em geleia) --- */
+@keyframes nt-confete-cai {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(0.4);
+  }
+  28% {
+    opacity: 1;
+    transform: translate(var(--bx, 0px), var(--by, -80px))
+      rotate(calc(var(--rot, 180deg) * 0.35)) scale(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--fx, 0px), var(--fy, 360px)) rotate(var(--rot, 180deg)) scale(1);
+  }
+}
+
+@keyframes nt-raios-entrada {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes nt-raios-giro {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes nt-pouso-geleia {
+  0% {
+    transform: translateY(-60px) scale(0.3, 0.3);
+    opacity: 0;
+  }
+  35% {
+    transform: translateY(0) scale(1.18, 0.78);
+    opacity: 1;
+  }
+  55% {
+    transform: scale(0.9, 1.12);
+  }
+  72% {
+    transform: scale(1.05, 0.95);
+  }
+  86% {
+    transform: scale(0.98, 1.02);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+/* --- Anel de compatibilidade --- */
+@keyframes nt-anel-progresso {
+  from {
+    stroke-dashoffset: var(--nt-ring-circumference, 163.36);
+  }
+  to {
+    stroke-dashoffset: var(--nt-ring-offset, 0);
+  }
+}
+
+/* --- Classes utilitárias de movimento --- */
+
+/* Toque em geleia */
+.nt-press {
+  transition:
+    scale 0.6s cubic-bezier(0.34, 1.9, 0.5, 1),
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.nt-press:active:not(:disabled) {
+  scale: 1.07 0.88;
+  transition: scale 0.07s ease-out;
+}
+
+/* Indicador deslizante em geleia */
+.nt-ind {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  transition:
+    left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.25s ease;
+  animation-duration: 0.65s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+
+/* Switch thumb com overshoot */
+.nt-switch-thumb {
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Campo numérico do contador sem setas nativas */
+input.nt-numin {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input.nt-numin::-webkit-outer-spin-button,
+input.nt-numin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.nt-num-pop-a {
+  animation: nt-num-a 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nt-num-pop-b {
+  animation: nt-num-b 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Risco desenhado no checklist */
+.nt-strike {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 55%;
+  background-repeat: no-repeat;
+  background-size: 0% 2px;
+  transition:
+    background-size 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.3s ease;
+}
+
+.nt-strike-done {
+  background-size: 100% 2px;
+}
+
+.nt-check-path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  transition: stroke-dashoffset 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nt-check-path-done {
+  stroke-dashoffset: 0;
+}
+
+/* Entradas e reveal */
+.nt-rise {
+  animation: nt-entrada-sobe 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nt-reveal-enter {
+  animation: nt-reveal 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Anel de compatibilidade */
+.nt-ring-arc {
+  animation: nt-anel-progresso 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Comemoração */
+.nt-rays {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  width: 520px;
+  height: 520px;
+  margin: -260px 0 0 -260px;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    oklch(0.94 0.05 33 / 0.85) 0deg 9deg,
+    transparent 9deg 22.5deg
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 0%, #000 20%, transparent 64%);
+  mask-image: radial-gradient(circle, #000 0%, #000 20%, transparent 64%);
+  animation:
+    nt-raios-entrada 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both,
+    nt-raios-giro 28s linear infinite;
+}
+
+.nt-cel-house {
+  transform-origin: 50% 100%;
+  animation: nt-pouso-geleia 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nt-confetti {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+  animation: nt-confete-cai 2.4s cubic-bezier(0.15, 0.7, 0.35, 1) both;
+}
+
+/* Splash vermelha (E-splash-vermelha): o telhado é desenhado, assenta em
+ * geleia, a porta abre com luz e, quando a sessão termina de carregar, a
+ * câmera mergulha pela porta até o site (classe `.nt-splash-leaving`). */
+.nt-splash-house {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  animation: nt-telhado-desenho 0.76s cubic-bezier(0.33, 0, 0.2, 1) 0.08s both;
+}
+
+.nt-splash-house-jello {
+  transform-origin: 0 0;
+  animation: nt-casa-geleia 0.6s linear 0.72s both;
+}
+
+.nt-splash-door {
+  transform-box: fill-box;
+  transform-origin: right center;
+  animation: nt-parede-desenho 0.62s cubic-bezier(0.22, 1, 0.36, 1) 1.18s both;
+}
+
+.nt-splash-door-leaf {
+  transform-origin: 0 0;
+  animation: nt-porta-folha 0.62s cubic-bezier(0.22, 1, 0.36, 1) 1.18s both;
+}
+
+.nt-splash-beam {
+  transform-origin: 0 0;
+  animation: nt-feixe-luz 0.95s cubic-bezier(0.22, 1, 0.36, 1) 1.18s both;
+}
+
+.nt-splash-zoom {
+  transform-origin: 50% 75%;
+}
+
+.nt-splash-door-veil {
+  animation: nt-aparece 0.16s ease-out 1s both;
+}
+
+.nt-splash-leaving .nt-splash-door-veil {
+  animation: nt-some 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
+}
+
+.nt-splash-wordmark {
+  animation: nt-entrada-sobe 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
+}
+
+.nt-splash-leaving .nt-splash-zoom {
+  animation: nt-sair-splash 0.86s cubic-bezier(0.7, 0, 0.84, 0) both;
+}
+
+.nt-splash-leaving .nt-splash-house-parallax {
+  transform-origin: 0 0;
+  animation:
+    nt-casa-mergulho 0.78s cubic-bezier(0.55, 0, 0.85, 0.25) both,
+    nt-some 0.26s cubic-bezier(0.22, 1, 0.36, 1) 0.52s both;
+}
+
+.nt-splash-leaving .nt-splash-wordmark,
+.nt-splash-leaving .nt-splash-skip {
+  animation: nt-some 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Painel lateral / folha inferior, diálogo e aviso --- */
+@keyframes nt-painel-direita {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes nt-folha-sobe {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes nt-dialogo-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes nt-aparece {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nt-some {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes nt-casa-mergulho {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.55);
+  }
+}
+
+@keyframes nt-aviso-sobe {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.92, 1.06);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.03, 0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.nt-overlay {
+  animation: nt-aparece 0.2s ease-out both;
+}
+
+.nt-panel {
+  animation: nt-folha-sobe 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (min-width: 768px) {
+  .nt-panel {
+    animation-name: nt-painel-direita;
+  }
+}
+
+.nt-dialog {
+  animation: nt-dialogo-entra 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nt-toast {
+  animation: nt-aviso-sobe 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Acessibilidade: movimento reduzido --- */
+@media (prefers-reduced-motion: reduce) {
+  .nt-press,
+  .nt-ind,
+  .nt-switch-thumb,
+  .nt-strike,
+  .nt-check-path {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .nt-press:active:not(:disabled) {
+    scale: none !important;
+  }
+
+  .nt-num-pop-a,
+  .nt-num-pop-b,
+  .nt-rise,
+  .nt-reveal-enter,
+  .nt-ring-arc,
+  .nt-cel-house,
+  .nt-splash-house,
+  .nt-splash-house-jello,
+  .nt-splash-door,
+  .nt-splash-door-leaf,
+  .nt-splash-beam,
+  .nt-splash-door-veil,
+  .nt-splash-leaving .nt-splash-door-veil,
+  .nt-splash-zoom,
+  .nt-splash-wordmark,
+  .nt-splash-leaving .nt-splash-zoom,
+  .nt-splash-leaving .nt-splash-house-parallax,
+  .nt-splash-leaving .nt-splash-wordmark,
+  .nt-splash-leaving .nt-splash-skip,
+  .nt-panel,
+  .nt-dialog,
+  .nt-toast {
+    animation: none !important;
+  }
+
+  /* Troca direta vira fade curto */
+  .nt-overlay,
+  .nt-panel,
+  .nt-dialog,
+  .nt-toast {
+    animation: nt-aparece 0.15s ease-out both !important;
+  }
+
+  .nt-splash-door {
+    transform: scaleX(0);
+  }
+
+  .nt-splash-door-leaf,
+  .nt-splash-beam {
+    opacity: 0;
+  }
+
+  .nt-splash-house {
+    stroke-dashoffset: 0;
+  }
+
+  .nt-rays {
+    animation: none !important;
+    opacity: 0.55;
+  }
+
+  .animate-spin {
+    animation: none !important;
+  }
+
+  .nt-confetti {
+    display: none !important;
+  }
+}

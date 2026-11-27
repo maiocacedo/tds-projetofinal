@@ -1,6 +1,5 @@
 import {
   ChevronDown,
-  CircleUserRound,
   Compass,
   House,
   Inbox,
@@ -14,9 +13,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PERMISSIONS, type UserMe } from '../api/me';
 import { useSession } from '../auth/SessionContext';
+import { Avatar } from '../components/Avatar';
+import { Logo } from '../components/Logo';
+import { useJellyIndicator } from '../motion/useJellyIndicator';
 import { getHomePathForUser, paths, routeAccess, type AppPath } from './paths';
 
 interface Tab {
@@ -92,7 +94,9 @@ function AccountMenu() {
         onClick={() => setOpen((value) => !value)}
         className="flex items-center gap-1 rounded-full p-1 text-tinta hover:bg-fundo"
       >
-        <CircleUserRound aria-hidden="true" className="size-7" />
+        <span aria-hidden="true" className="inline-flex">
+          <Avatar name={user?.name ?? ''} size="sm" />
+        </span>
         <span className="sr-only">{user?.name}</span>
         <ChevronDown aria-hidden="true" className="size-4" />
       </button>
@@ -140,24 +144,70 @@ function AccountMenu() {
   );
 }
 
-function TabLink({ tab, compact }: { tab: Tab; compact?: boolean }) {
+function isTabActive(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+function TabLink({
+  tab,
+  compact,
+  indicatorReady,
+}: {
+  tab: Tab;
+  compact?: boolean;
+  indicatorReady: boolean;
+}) {
   const Icon = tab.icon;
   return (
     <NavLink
       to={tab.to}
+      data-jelly-key={tab.to}
       className={({ isActive }) =>
         [
-          'flex items-center rounded-full font-semibold transition-colors',
+          'nt-press relative z-[1] flex min-h-11 items-center rounded-full font-semibold transition-colors duration-300',
           compact
-            ? 'flex-1 flex-col gap-0.5 px-1 py-1.5 text-xs'
+            ? 'flex-1 flex-col justify-center gap-0.5 px-1 py-1.5 text-xs'
             : 'gap-2 px-3 py-1.5 text-sm',
-          isActive ? 'bg-tinta text-superficie' : 'text-texto-suave hover:text-tinta',
+          isActive
+            ? // Com o indicador geleia medido, ele pinta o fundo; sem medida
+              // (jsdom, primeira pintura), o próprio link pinta.
+              indicatorReady
+              ? 'text-superficie'
+              : 'bg-tinta text-superficie'
+            : 'text-texto-suave hover:text-tinta',
         ].join(' ')
       }
     >
       <Icon aria-hidden="true" className={compact ? 'size-5' : 'size-4'} />
       {tab.label}
     </NavLink>
+  );
+}
+
+/** Lista de abas com um único indicador que desliza em geleia até a ativa. */
+function TabList({ tabs, compact }: { tabs: Tab[]; compact?: boolean }) {
+  const { pathname } = useLocation();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeKey = tabs.find((tab) => isTabActive(pathname, tab.to))?.to ?? null;
+  const indicator = useJellyIndicator(containerRef, activeKey);
+
+  return (
+    <div ref={containerRef} className="relative">
+      {indicator.ready && (
+        <span
+          aria-hidden="true"
+          className="nt-ind top-0 bottom-0 rounded-full bg-tinta"
+          style={indicator.style}
+        />
+      )}
+      <ul className={compact ? 'flex items-stretch gap-1' : 'flex items-center gap-1'}>
+        {tabs.map((tab) => (
+          <li key={tab.to} className={compact ? 'flex flex-1' : undefined}>
+            <TabLink tab={tab} compact={compact} indicatorReady={indicator.ready} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -173,18 +223,12 @@ export function AppShell() {
     <div className="min-h-screen bg-fundo text-tinta">
       <header className="sticky top-0 z-10 border-b border-linha bg-superficie/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
-          <Link to={home} className="text-lg font-extrabold tracking-tight">
-            Nosso Teto
+          <Link to={home} className="nt-press rounded-xl">
+            <Logo size="sm" />
           </Link>
           {tabs.length > 0 && (
             <nav aria-label="Navegação principal" className="hidden md:block">
-              <ul className="flex items-center gap-1">
-                {tabs.map((tab) => (
-                  <li key={tab.to}>
-                    <TabLink tab={tab} />
-                  </li>
-                ))}
-              </ul>
+              <TabList tabs={tabs} />
             </nav>
           )}
           <AccountMenu />
@@ -200,13 +244,9 @@ export function AppShell() {
           aria-label="Navegação inferior"
           className="fixed inset-x-0 bottom-0 z-10 border-t border-linha bg-superficie md:hidden"
         >
-          <ul className="flex items-stretch gap-1 px-2 py-1">
-            {tabs.map((tab) => (
-              <li key={tab.to} className="flex flex-1">
-                <TabLink tab={tab} compact />
-              </li>
-            ))}
-          </ul>
+          <div className="px-2 py-1">
+            <TabList tabs={tabs} compact />
+          </div>
         </nav>
       )}
     </div>

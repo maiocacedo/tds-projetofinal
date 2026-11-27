@@ -5,6 +5,7 @@ import { StrictMode, type ReactElement, type ReactNode } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { createQueryClient } from '../api/queryClient';
 import { SessionProvider } from '../auth/SessionContext';
+import { ToastProvider } from '../components/Toast';
 import { AppRoutes } from '../routes/router';
 
 export interface RenderWithProvidersOptions {
@@ -31,7 +32,7 @@ function LocationDisplay() {
 
 /**
  * Renderiza `ui` (ou a tabela completa de rotas, quando omitido) com
- * QueryClient limpo + MemoryRouter + SessionProvider.
+ * QueryClient limpo + MemoryRouter + SessionProvider + ToastProvider.
  */
 export function renderWithProviders(
   ui?: ReactElement,
@@ -40,10 +41,12 @@ export function renderWithProviders(
   const tree: ReactNode = (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[route]}>
-        <SessionProvider>
-          {ui ?? <AppRoutes />}
-          <LocationDisplay />
-        </SessionProvider>
+        <ToastProvider>
+          <SessionProvider>
+            {ui ?? <AppRoutes />}
+            <LocationDisplay />
+          </SessionProvider>
+        </ToastProvider>
       </MemoryRouter>
     </QueryClientProvider>
   );
