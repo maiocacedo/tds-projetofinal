@@ -1,5 +1,6 @@
 package com.nossoteto.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nossoteto.model.User;
 import com.nossoteto.repository.PermissionRepository;
@@ -12,6 +13,7 @@ import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -22,8 +24,11 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -51,40 +56,110 @@ class AdminPermissionFlowIntegrationTest {
     }
 
     @Test
-    void adminRevokesPermissionAndItAppliesOnNextRefresh() throws Exception {
-        String email = "victim-" + UUID.randomUUID() + "@nossoteto.com";
-        MvcResult reg = mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\":\"V\",\"email\":\"" + email + "\",\"senha\":\"senha123\"}"))
+    void adminRevokesPermissionRevokesRefreshTokensAndAppliesOnNextLogin() throws Exception {
+        String victimEmail = "victim-" + UUID.randomUUID() + "@nossoteto.com";
+        MvcResult victimReg = mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"V\",\"email\":\"" + victimEmail + "\",\"senha\":\"senha123\"}"))
                 .andExpect(status().isCreated()).andReturn();
-        String userId = objectMapper.readTree(reg.getResponse().getContentAsString()).get("id").asText();
+        String victimId = objectMapper.readTree(victimReg.getResponse().getContentAsString()).get("id").asText();
 
-        MvcResult userLogin = login(email, "senha123");
+        String homedEmail = "homed-" + UUID.randomUUID() + "@nossoteto.com";
+        MvcResult homedReg = mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"H\",\"email\":\"" + homedEmail + "\",\"senha\":\"senha123\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        String homedId = objectMapper.readTree(homedReg.getResponse().getContentAsString()).get("id").asText();
+
+        MvcResult userLogin = login(victimEmail, "senha123");
         Cookie userCookie = userLogin.getResponse().getCookie("refresh_token");
+
+        String homedToken = access(login(homedEmail, "senha123"));
+        MvcResult createdHouse = mockMvc.perform(post("/api/houses")
+                        .header("Authorization", "Bearer " + homedToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"Casa Sol\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        String houseId = objectMapper.readTree(createdHouse.getResponse().getContentAsString()).get("id").asText();
+
         String adminToken = access(login("admin@test.local", "admin-test-pass"));
 
         MvcResult listResult = mockMvc.perform(get("/api/admin/users").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='" + victimId + "')].houseId", hasItem(nullValue())))
+                .andExpect(jsonPath("$[?(@.id=='" + victimId + "')].houseName", hasItem(nullValue())))
+                .andExpect(jsonPath("$[?(@.id=='" + homedId + "')].houseId", hasItem(houseId)))
+                .andExpect(jsonPath("$[?(@.id=='" + homedId + "')].houseName", hasItem("Casa Sol")))
                 .andReturn();
         assertFalse(listResult.getResponse().getContentAsString().contains("passwordHash"));
 
-        mockMvc.perform(put("/api/admin/users/" + userId + "/permissions")
+        mockMvc.perform(put("/api/admin/users/" + homedId + "/permissions")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"permissions\":[\"ROLE_MANAGE_PROFILE\",\"ROLE_SEARCH_HOUSES\",\"ROLE_MANAGE_HOUSE\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.houseId").value(houseId))
+                .andExpect(jsonPath("$.houseName").value("Casa Sol"));
+
+        mockMvc.perform(put("/api/admin/users/" + victimId + "/permissions")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"permissions\":[\"ROLE_MANAGE_PROFILE\",\"ROLE_SEARCH_HOUSES\"]}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.houseId").value(nullValue()))
+                .andExpect(jsonPath("$.houseName").value(nullValue()))
                 .andExpect(jsonPath("$.permissions", not(hasItem("ROLE_MANAGE_HOUSE"))));
 
-        MvcResult refreshed = mockMvc.perform(post("/oauth/token")
+        mockMvc.perform(post("/oauth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                         .param("client_id", "nosso-teto-web")
                         .param("grant_type", "refresh_token")
                         .cookie(userCookie))
-                .andExpect(status().isOk()).andReturn();
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_grant"));
 
-        mockMvc.perform(post("/api/houses").header("Authorization", "Bearer " + access(refreshed))
+        String newAccessToken = access(login(victimEmail, "senha123"));
+        mockMvc.perform(post("/api/houses").header("Authorization", "Bearer " + newAccessToken)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"nome\":\"X\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error").value("Insufficient permission"));
+    }
+
+    @Test
+    void listPermissionsRequiresAdminRoleAndReadScope() throws Exception {
+        mockMvc.perform(get("/api/admin/permissions"))
+                .andExpect(status().isUnauthorized());
+
+        String plainEmail = "plain-perms-" + UUID.randomUUID() + "@nossoteto.com";
+        mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nome\":\"P\",\"email\":\"" + plainEmail + "\",\"senha\":\"senha123\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(get("/api/admin/permissions")
+                        .header("Authorization", "Bearer " + access(login(plainEmail, "senha123"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Insufficient permission"));
+
+        mockMvc.perform(get("/api/admin/permissions")
+                        .with(jwt().jwt(j -> j.subject("admin-wrong-scope"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN_USERS"),
+                                        new SimpleGrantedAuthority("SCOPE_write"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Insufficient permission"));
+
+        String adminToken = access(login("admin@test.local", "admin-test-pass"));
+        MvcResult result = mockMvc.perform(get("/api/admin/permissions")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(9)))
+                .andExpect(jsonPath("$[0].name").value("ROLE_MANAGE_PROFILE"))
+                .andExpect(jsonPath("$[0].description").value("Ver e editar o proprio perfil"))
+                .andExpect(jsonPath("$[8].name").value("ROLE_ADMIN_USERS"))
+                .andExpect(jsonPath("$[8].description").value("Administrar usuarios e permissoes"))
+                .andReturn();
+
+        JsonNode array = objectMapper.readTree(result.getResponse().getContentAsString());
+        for (JsonNode item : array) {
+            assertFalse(item.get("name").asText().isBlank());
+            assertFalse(item.get("description").asText().isBlank());
+        }
     }
 
     @Test

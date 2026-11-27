@@ -1,6 +1,7 @@
 package com.nossoteto.controller;
 
 import com.nossoteto.dto.AdminUserResponse;
+import com.nossoteto.dto.PermissionDto;
 import com.nossoteto.dto.UpdatePermissionsRequest;
 import com.nossoteto.service.AdminService;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admin/users")
+@RequestMapping("/api/admin")
 public class AdminController {
 
     private final AdminService adminService;
@@ -20,13 +21,19 @@ public class AdminController {
         this.adminService = adminService;
     }
 
-    @GetMapping
+    @GetMapping("/users")
     @PreAuthorize("hasAuthority('ROLE_ADMIN_USERS') and hasAuthority('SCOPE_read')")
     public ResponseEntity<List<AdminUserResponse>> listUsers() {
         return ResponseEntity.ok(adminService.listUsers());
     }
 
-    @PutMapping("/{id}/permissions")
+    @GetMapping("/permissions")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN_USERS') and hasAuthority('SCOPE_read')")
+    public ResponseEntity<List<PermissionDto>> listPermissions() {
+        return ResponseEntity.ok(adminService.listPermissions());
+    }
+
+    @PutMapping("/users/{id}/permissions")
     @PreAuthorize("hasAuthority('ROLE_ADMIN_USERS') and hasAuthority('SCOPE_write')")
     public ResponseEntity<AdminUserResponse> replacePermissions(Authentication authentication,
                                                                 @PathVariable String id,
