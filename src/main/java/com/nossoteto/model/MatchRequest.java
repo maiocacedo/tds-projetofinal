@@ -33,6 +33,10 @@ public class MatchRequest {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    // UTC. Only set while (or after) the request was AWAITING_MOVE.
+    @Column(name = "move_deadline")
+    private LocalDateTime moveDeadline;
+
     public MatchRequest() {}
 
     public String getId() { return id; }
@@ -49,4 +53,7 @@ public class MatchRequest {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getMoveDeadline() { return moveDeadline; }
+    public void setMoveDeadline(LocalDateTime moveDeadline) { this.moveDeadline = moveDeadline; }
 }

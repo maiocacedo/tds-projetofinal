@@ -1,8 +1,10 @@
 package com.nossoteto.controller;
 
+import com.nossoteto.dto.ConfirmMoveRequest;
 import com.nossoteto.dto.CreateMatchRequestDto;
 import com.nossoteto.dto.MatchRequestResponse;
 import com.nossoteto.dto.MyMatchRequestDto;
+import com.nossoteto.dto.UserMeResponse;
 import com.nossoteto.dto.VoteMatchResponse;
 import com.nossoteto.dto.VoteRequestDto;
 import com.nossoteto.service.MatchService;
@@ -77,6 +79,30 @@ public class MatchController {
             Authentication authentication) {
         String userId = extractUserId(authentication);
         return ResponseEntity.ok(matchService.cancelOtherPendingRequests(userId));
+    }
+
+    // Confirming or declining a move only needs an authenticated resident, like "leave".
+    @PostMapping("/api/matches/requests/{id}/confirm-move")
+    @PreAuthorize("hasAuthority('SCOPE_write')")
+    public ResponseEntity<UserMeResponse> confirmMove(
+            Authentication authentication,
+            @PathVariable String id,
+            @RequestBody(required = false) ConfirmMoveRequest request) {
+        return ResponseEntity.ok(matchService.confirmMove(extractUserId(authentication), id, request));
+    }
+
+    @PostMapping("/api/matches/requests/{id}/decline-move")
+    @PreAuthorize("hasAuthority('SCOPE_write')")
+    public ResponseEntity<Void> declineMove(Authentication authentication, @PathVariable String id) {
+        matchService.declineMove(extractUserId(authentication), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/api/matches/requests/{id}/retract")
+    @PreAuthorize("hasAuthority('ROLE_MATCH') and hasAuthority('SCOPE_write')")
+    public ResponseEntity<Void> retractMove(Authentication authentication, @PathVariable String id) {
+        matchService.retractMove(extractUserId(authentication), id);
+        return ResponseEntity.noContent().build();
     }
 
     private String extractUserId(Authentication authentication) {

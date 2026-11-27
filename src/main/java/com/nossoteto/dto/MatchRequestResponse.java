@@ -16,6 +16,8 @@ public class MatchRequestResponse {
     private Integer compatibilityScore;
     private UserProfileDto userProfile;
     private LocalDateTime createdAt;
+    // UTC end of the 72 h reservation; null unless the request is (or was) AWAITING_MOVE.
+    private LocalDateTime moveDeadline;
     // Filled by GET /api/houses/{id}/matches only.
     private CandidateCardDto candidate;
     private List<VoterSummaryDto> voters;
@@ -49,6 +51,9 @@ public class MatchRequestResponse {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getMoveDeadline() { return moveDeadline; }
+    public void setMoveDeadline(LocalDateTime moveDeadline) { this.moveDeadline = moveDeadline; }
 
     public CandidateCardDto getCandidate() { return candidate; }
     public void setCandidate(CandidateCardDto candidate) { this.candidate = candidate; }

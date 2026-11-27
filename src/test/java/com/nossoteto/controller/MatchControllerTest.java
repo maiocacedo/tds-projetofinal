@@ -1,9 +1,11 @@
 package com.nossoteto.controller;
 
 import com.nossoteto.dto.CandidateCardDto;
+import com.nossoteto.dto.ConfirmMoveRequest;
 import com.nossoteto.dto.CreateMatchRequestDto;
 import com.nossoteto.dto.MatchRequestResponse;
 import com.nossoteto.dto.MyMatchRequestDto;
+import com.nossoteto.dto.UserMeResponse;
 import com.nossoteto.dto.VoteMatchResponse;
 import com.nossoteto.dto.VoteRequestDto;
 import com.nossoteto.dto.VoterSummaryDto;
@@ -32,6 +34,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -216,5 +219,97 @@ class MatchControllerTest {
                 .andExpect(jsonPath("$[0].voters[0].name").value("Ana"))
                 .andExpect(jsonPath("$[0].voters[0].vote").doesNotExist())
                 .andExpect(jsonPath("$[0].myVote").value("REJECT"));
+    }
+
+    // ---------- B6: mudança de casa ----------
+
+    @Test
+    void confirmMoveShouldPassHeirAndReturnTheUserInTheNewHouse() throws Exception {
+        UserMeResponse me = new UserMeResponse("mover", "Mover", "mover@test.com", "house-new", false,
+                "Casa Nova", null, true, List.of(), null, 0, false);
+        when(matchService.confirmMove(eq("mover"), eq("req-1"), any(ConfirmMoveRequest.class))).thenReturn(me);
+
+        mockMvc.perform(post("/api/matches/requests/req-1/confirm-move")
+                        .principal(auth("mover"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newAdminId\":\"heir-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("mover"))
+                .andExpect(jsonPath("$.houseId").value("house-new"))
+                .andExpect(jsonPath("$.isHouseAdmin").value(false));
+
+        ArgumentCaptor<ConfirmMoveRequest> captor = ArgumentCaptor.forClass(ConfirmMoveRequest.class);
+        verify(matchService).confirmMove(eq("mover"), eq("req-1"), captor.capture());
+        assertEquals("heir-1", captor.getValue().getNewAdminId());
+    }
+
+    @Test
+    void confirmMoveShouldAcceptAMissingBodyAndMapErrors() throws Exception {
+        when(matchService.confirmMove(eq("mover"), eq("req-1"), isNull()))
+                .thenThrow(new BusinessRuleException("new admin required"));
+        when(matchService.confirmMove(eq("mover"), eq("req-2"), isNull()))
+                .thenThrow(new ConflictException("request is not awaiting move"));
+        when(matchService.confirmMove(eq("intruder"), eq("req-1"), isNull()))
+                .thenThrow(new ForbiddenOperationException("only the owner can perform this action"));
+
+        mockMvc.perform(post("/api/matches/requests/req-1/confirm-move").principal(auth("mover")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("new admin required"));
+        mockMvc.perform(post("/api/matches/requests/req-2/confirm-move").principal(auth("mover")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("request is not awaiting move"));
+        mockMvc.perform(post("/api/matches/requests/req-1/confirm-move").principal(auth("intruder")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void declineMoveShouldReturn204AndMapConflict() throws Exception {
+        mockMvc.perform(post("/api/matches/requests/req-1/decline-move").principal(auth("mover")))
+                .andExpect(status().isNoContent());
+        verify(matchService).declineMove("mover", "req-1");
+
+        doThrow(new ConflictException("request is not awaiting move"))
+                .when(matchService).declineMove("mover", "req-2");
+        mockMvc.perform(post("/api/matches/requests/req-2/decline-move").principal(auth("mover")))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void retractShouldReturn204AndMapForbidden() throws Exception {
+        mockMvc.perform(post("/api/matches/requests/req-1/retract").principal(auth("admin-1")))
+                .andExpect(status().isNoContent());
+        verify(matchService).retractMove("admin-1", "req-1");
+
+        doThrow(new ForbiddenOperationException("User is not an administrator of this house"))
+                .when(matchService).retractMove("resident-1", "req-1");
+        mockMvc.perform(post("/api/matches/requests/req-1/retract").principal(auth("resident-1")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void listMyRequestsShouldSerializeMoveDeadline() throws Exception {
+        LocalDateTime deadline = LocalDateTime.of(2026, 11, 30, 12, 0);
+        when(matchService.listMyMatchRequests("mover")).thenReturn(List.of(new MyMatchRequestDto(
+                "req-1", "house-new", "Casa Nova", MatchStatus.AWAITING_MOVE, deadline.minusHours(72),
+                1, 1, deadline)));
+
+        mockMvc.perform(get("/api/matches/requests/mine").principal(auth("mover")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].status").value("AWAITING_MOVE"))
+                .andExpect(jsonPath("$[0].moveDeadline").value("2026-11-30T12:00:00"));
+    }
+
+    @Test
+    void listHouseMatchesShouldExposeMoveDeadline() throws Exception {
+        MatchRequestResponse response = new MatchRequestResponse();
+        response.setId("req-1");
+        response.setStatus(MatchStatus.AWAITING_MOVE);
+        response.setMoveDeadline(LocalDateTime.of(2026, 11, 30, 12, 0));
+        when(matchService.listHouseMatchRequests("admin-1", "house-new")).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/houses/house-new/matches").principal(auth("admin-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].status").value("AWAITING_MOVE"))
+                .andExpect(jsonPath("$[0].moveDeadline").value("2026-11-30T12:00:00"));
     }
 }
