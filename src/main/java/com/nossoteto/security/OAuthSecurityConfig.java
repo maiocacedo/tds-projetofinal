@@ -64,6 +64,7 @@ public class OAuthSecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(handlers).accessDeniedHandler(handlers))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/password-reset", "/api/auth/password-reset/confirm").permitAll()
                         // "/error" must stay open: Spring forwards failed requests there without the JWT.
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())

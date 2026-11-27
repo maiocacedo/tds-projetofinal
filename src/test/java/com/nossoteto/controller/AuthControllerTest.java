@@ -6,6 +6,7 @@ import com.nossoteto.repository.PermissionRepository;
 import com.nossoteto.repository.UserRepository;
 import com.nossoteto.security.Permissions;
 import com.nossoteto.service.AuthService;
+import com.nossoteto.service.PasswordResetService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,9 @@ class AuthControllerTest {
 
     @MockBean
     private PasswordEncoder passwordEncoder;
+
+    @MockBean
+    private PasswordResetService passwordResetService;
 
     @Test
     void registerShouldReturn201WithEnglishFields() throws Exception {
